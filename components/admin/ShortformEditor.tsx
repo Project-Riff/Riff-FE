@@ -84,10 +84,12 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_14px_40px_rgba(0,0,0,0.18)]">
-      <div className="mb-3">
-        <h3 className="text-sm font-bold text-white">{title}</h3>
-        {desc ? <p className="mt-1 text-xs leading-5 text-white/45">{desc}</p> : null}
+    <div className="rounded-[28px] border border-black/8 bg-white p-5 shadow-[0_14px_40px_rgba(0,0,0,0.05)]">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-neutral-900">{title}</h3>
+        {desc ? (
+          <p className="mt-1 text-xs leading-5 text-neutral-500">{desc}</p>
+        ) : null}
       </div>
       {children}
     </div>
@@ -107,12 +109,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-white/70">{label}</span>
+      <span className="mb-1.5 block text-xs font-medium text-neutral-700">
+        {label}
+      </span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-orange-400/60 focus:bg-black/40"
+        className="w-full rounded-2xl border border-black/10 bg-[#f8f6f2] px-3 py-2.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#ff6a1a]/40 focus:bg-white"
       />
     </label>
   );
@@ -130,15 +134,15 @@ function FilePickCard({
   required?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+    <div className="rounded-2xl border border-black/8 bg-[#faf8f4] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold text-white">{title}</div>
+        <div className="text-xs font-semibold text-neutral-900">{title}</div>
         {required ? (
-          <span className="rounded-full border border-orange-400/30 bg-orange-400/10 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
+          <span className="rounded-full border border-[#ff6a1a]/20 bg-[#ff6a1a]/8 px-2 py-0.5 text-[10px] font-semibold text-[#d95d16]">
             필수
           </span>
         ) : (
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/55">
+          <span className="rounded-full border border-black/8 bg-white px-2 py-0.5 text-[10px] text-neutral-500">
             선택
           </span>
         )}
@@ -147,7 +151,7 @@ function FilePickCard({
       <button
         type="button"
         onClick={onClick}
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-white/80 transition hover:bg-white/10"
+        className="w-full rounded-xl border border-black/8 bg-white px-3 py-2 text-left text-xs text-neutral-700 transition hover:bg-neutral-50"
       >
         {fileNameOrEmpty(file) || `${title} 선택`}
       </button>
@@ -412,31 +416,31 @@ export default function ShortformEditor() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0a0a0b] px-4 py-6 text-white">
-      <div className="mx-auto max-w-[900px]">
-        <div className="mb-5 rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.16),transparent_35%),radial-gradient(circle_at_top_right,rgba(239,68,68,0.12),transparent_26%),rgba(255,255,255,0.03)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <main className="min-h-screen bg-[#f5f3ef] px-4 py-8 text-neutral-900">
+      <div className="mx-auto max-w-[1200px]">
+        <div className="mb-6 rounded-[32px] border border-black/8 bg-white p-6 shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-orange-300/80">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ff6a1a]">
                 Riff Admin
               </p>
-              <h1 className="bg-gradient-to-r from-red-400 via-orange-300 to-yellow-200 bg-clip-text text-3xl font-black tracking-tight text-transparent md:text-4xl">
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 md:text-4xl">
                 숏폼 제작 파이프라인
               </h1>
-              <p className="mt-2 max-w-[620px] text-xs leading-5 text-white/55">
+              <p className="mt-2 max-w-[620px] text-sm leading-6 text-neutral-500">
                 필요한 중간 산출물을 모두 넣으면 해당 단계부터 바로 이어서 렌더링합니다.
               </p>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/70">
-              <div className="font-semibold text-white">현재 모드</div>
-              <div className="mt-1 text-orange-300">{guide.title}</div>
+            <div className="rounded-2xl border border-black/8 bg-[#faf8f4] px-4 py-3 text-sm text-neutral-600">
+              <div className="font-medium text-neutral-900">현재 모드</div>
+              <div className="mt-1 text-[#ff6a1a]">{guide.title}</div>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-          <div className="space-y-4">
+        <div className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr]">
+          <div className="space-y-5">
             <SectionCard
               title="시작 모드"
               desc="어디서부터 이어서 시작할지 선택하세요."
@@ -445,7 +449,7 @@ export default function ShortformEditor() {
                 <select
                   value={resumeFrom}
                   onChange={(e) => setResumeFrom(e.target.value as ResumeFrom)}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none transition focus:border-orange-400/60"
+                  className="w-full rounded-2xl border border-black/10 bg-[#f8f6f2] px-3 py-3 text-sm text-neutral-900 outline-none transition focus:border-[#ff6a1a]/40"
                 >
                   <option value="full">전체 실행</option>
                   <option value="analysis">analysis.json부터 재개</option>
@@ -454,24 +458,24 @@ export default function ShortformEditor() {
                   <option value="body">body.mp4부터 재개</option>
                 </select>
 
-                <div className="rounded-xl border border-orange-400/20 bg-orange-400/8 p-3">
-                  <div className="text-xs font-semibold text-orange-200">
+                <div className="rounded-2xl border border-[#ff6a1a]/15 bg-[#fff8f3] p-4">
+                  <div className="text-xs font-semibold text-[#d95d16]">
                     {guide.title}
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-white/65">
+                  <p className="mt-1 text-xs leading-5 text-neutral-600">
                     {guide.desc}
                   </p>
 
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <div>
-                      <div className="mb-1 text-[11px] font-semibold text-white/80">
+                      <div className="mb-1 text-[11px] font-semibold text-neutral-800">
                         필수 파일
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {guide.required.map((item) => (
                           <span
                             key={item}
-                            className="rounded-full border border-orange-400/30 bg-orange-400/10 px-2 py-0.5 text-[10px] text-orange-100"
+                            className="rounded-full border border-[#ff6a1a]/20 bg-[#ff6a1a]/8 px-2 py-0.5 text-[10px] text-[#d95d16]"
                           >
                             {item}
                           </span>
@@ -480,7 +484,7 @@ export default function ShortformEditor() {
                     </div>
 
                     <div>
-                      <div className="mb-1 text-[11px] font-semibold text-white/80">
+                      <div className="mb-1 text-[11px] font-semibold text-neutral-800">
                         선택 항목
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -488,13 +492,13 @@ export default function ShortformEditor() {
                           guide.optional.map((item) => (
                             <span
                               key={item}
-                              className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/65"
+                              className="rounded-full border border-black/8 bg-white px-2 py-0.5 text-[10px] text-neutral-600"
                             >
                               {item}
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-white/35">없음</span>
+                          <span className="text-[10px] text-neutral-400">없음</span>
                         )}
                       </div>
                     </div>
@@ -509,10 +513,10 @@ export default function ShortformEditor() {
             >
               <div className="grid gap-3">
                 <div
-                  className={`cursor-pointer rounded-2xl border border-dashed px-4 py-6 text-center transition ${
+                  className={`cursor-pointer rounded-[24px] border border-dashed px-4 py-8 text-center transition ${
                     dragOver
-                      ? "border-orange-400 bg-orange-400/10"
-                      : "border-white/15 bg-white/[0.02] hover:border-orange-400/70 hover:bg-orange-400/5"
+                      ? "border-[#ff6a1a] bg-[#fff8f3]"
+                      : "border-black/12 bg-[#faf8f4] hover:border-[#ff6a1a]/60 hover:bg-[#fffaf6]"
                   }`}
                   onClick={() => fileRef.current?.click()}
                   onDragOver={(e) => {
@@ -534,14 +538,14 @@ export default function ShortformEditor() {
                     onChange={(e) => pickFile(e.target.files?.[0])}
                   />
 
-                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-orange-400 text-sm font-black text-white">
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff6a1a] text-sm font-black text-white shadow-[0_10px_25px_rgba(255,106,26,0.22)]">
                     V
                   </div>
 
-                  <strong className="block text-sm font-bold text-white">
+                  <strong className="block text-sm font-semibold text-neutral-900">
                     {pickedFile ? pickedFile.name : "원본 영상 선택"}
                   </strong>
-                  <p className="mt-1 text-xs text-white/40">MP4 / MOV / WEBM</p>
+                  <p className="mt-1 text-xs text-neutral-500">MP4 / MOV / WEBM</p>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
@@ -646,22 +650,19 @@ export default function ShortformEditor() {
               </div>
             </SectionCard>
 
-            <SectionCard
-              title="YouTube 링크"
-              desc="현재는 준비 단계입니다."
-            >
+            <SectionCard title="YouTube 링크" desc="현재는 준비 단계입니다.">
               <div className="flex flex-col gap-2 md:flex-row">
                 <input
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   placeholder="YouTube URL 붙여넣기"
-                  className="flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 focus:border-orange-400/60"
+                  className="flex-1 rounded-2xl border border-black/10 bg-[#f8f6f2] px-3 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#ff6a1a]/40"
                 />
                 <button
                   type="button"
                   onClick={handleYoutube}
                   disabled={isUploading || !youtubeUrl.trim()}
-                  className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold transition hover:bg-white/15 disabled:opacity-40"
+                  className="rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 disabled:opacity-40"
                 >
                   YouTube 작업
                 </button>
@@ -672,40 +673,40 @@ export default function ShortformEditor() {
               type="button"
               onClick={handleUpload}
               disabled={isUploading}
-              className="w-full rounded-2xl bg-gradient-to-r from-red-500 via-orange-400 to-amber-300 px-5 py-3 text-sm font-black text-white shadow-[0_16px_40px_rgba(249,115,22,0.22)] transition hover:translate-y-[-1px] disabled:opacity-40"
+              className="w-full rounded-full bg-neutral-900 px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition hover:opacity-90 disabled:opacity-40"
             >
               {isUploading ? "처리 중..." : "작업 시작"}
             </button>
 
             {error ? (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 {error}
               </div>
             ) : null}
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <SectionCard
               title="작업 상태"
               desc="현재 단계와 진행률을 확인합니다."
             >
-              <div className="rounded-xl border border-white/10 bg-black/25 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs text-white/70">
+              <div className="rounded-2xl border border-black/8 bg-[#faf8f4] p-4">
+                <div className="mb-2 flex items-center justify-between text-xs text-neutral-500">
                   <span>{stageText}</span>
-                  <span className="font-semibold text-white">{progress}%</span>
+                  <span className="font-semibold text-neutral-900">{progress}%</span>
                 </div>
 
-                <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-2 overflow-hidden rounded-full bg-black/6">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-red-500 via-orange-400 to-yellow-300 transition-all"
+                    className="h-full rounded-full bg-[#ff6a1a] transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
 
-                <div className="mt-3 grid gap-2 text-xs text-white/65">
-                  <div className="rounded-lg bg-white/5 px-3 py-2">
-                    <span className="text-white/40">Job ID</span>
-                    <div className="mt-1 break-all font-mono text-[11px] text-white/85">
+                <div className="mt-3 grid gap-2 text-xs text-neutral-600">
+                  <div className="rounded-xl bg-white px-3 py-2">
+                    <span className="text-neutral-400">Job ID</span>
+                    <div className="mt-1 break-all font-mono text-[11px] text-neutral-800">
                       {jobId || "-"}
                     </div>
                   </div>
@@ -717,24 +718,24 @@ export default function ShortformEditor() {
                   job.logs.map((log, idx) => (
                     <div
                       key={`${log.t}-${idx}`}
-                      className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2.5"
+                      className="rounded-2xl border border-black/8 bg-[#faf8f4] px-3 py-3"
                     >
-                      <div className="flex items-center justify-between gap-3 text-[11px] text-white/35">
+                      <div className="flex items-center justify-between gap-3 text-[11px] text-neutral-400">
                         <span>{(log.t / 1000).toFixed(1)}s</span>
                         <span>{log.progress}%</span>
                       </div>
-                      <div className="mt-0.5 text-xs font-semibold text-white">
+                      <div className="mt-0.5 text-xs font-semibold text-neutral-900">
                         {STAGE_LABELS[log.stage] || log.stage}
                       </div>
                       {log.message ? (
-                        <div className="mt-0.5 text-xs leading-5 text-white/55">
+                        <div className="mt-0.5 text-xs leading-5 text-neutral-600">
                           {log.message}
                         </div>
                       ) : null}
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-6 text-center text-xs text-white/35">
+                  <div className="rounded-2xl border border-black/8 bg-[#faf8f4] px-4 py-6 text-center text-xs text-neutral-400">
                     아직 로그가 없습니다.
                   </div>
                 )}
@@ -747,85 +748,89 @@ export default function ShortformEditor() {
             >
               {job?.analysis ? (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="rounded-2xl border border-black/8 bg-[#faf8f4] p-4">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-full border border-orange-400/25 bg-orange-400/10 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
+                      <span className="rounded-full border border-[#ff6a1a]/20 bg-[#ff6a1a]/8 px-2 py-0.5 text-[10px] font-semibold text-[#d95d16]">
                         {job.analysis.mood || "mood 없음"}
                       </span>
 
                       {(job.analysis.bgmTags ?? []).map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/70"
+                          className="rounded-full border border-black/8 bg-white px-2 py-0.5 text-[10px] text-neutral-600"
                         >
                           #{tag}
                         </span>
                       ))}
                     </div>
 
-                    <h4 className="mt-3 text-sm font-bold text-white">
+                    <h4 className="mt-3 text-sm font-semibold text-neutral-900">
                       {job.analysis.title || "-"}
                     </h4>
 
-                    <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-white/65">
+                    <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-neutral-600">
                       {job.analysis.narration || "-"}
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-                    <p className="mb-2 text-xs font-semibold text-white">선택된 구간</p>
+                  <div className="rounded-2xl border border-black/8 bg-[#faf8f4] p-4">
+                    <p className="mb-2 text-xs font-semibold text-neutral-900">
+                      선택된 구간
+                    </p>
 
                     {job.analysis.segments?.length ? (
                       <div className="space-y-2">
                         {job.analysis.segments.map((segment, idx) => (
                           <div
                             key={`${segment.start}-${segment.end}-${idx}`}
-                            className="rounded-lg bg-black/25 px-3 py-2"
+                            className="rounded-xl border border-black/8 bg-white px-3 py-2.5"
                           >
-                            <div className="text-[11px] text-white/35">
+                            <div className="text-[11px] text-neutral-400">
                               {formatSec(segment.start)} - {formatSec(segment.end)}
                             </div>
-                            <div className="mt-0.5 text-xs text-white/85">
+                            <div className="mt-0.5 text-xs text-neutral-800">
                               {segment.label || "핵심 장면"}
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-lg bg-black/25 px-3 py-2 text-xs text-white/40">
+                      <div className="rounded-xl border border-black/8 bg-white px-3 py-2 text-xs text-neutral-400">
                         구간 정보가 없습니다.
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-                    <p className="mb-2 text-xs font-semibold text-white">자막 미리보기</p>
+                  <div className="rounded-2xl border border-black/8 bg-[#faf8f4] p-4">
+                    <p className="mb-2 text-xs font-semibold text-neutral-900">
+                      자막 미리보기
+                    </p>
 
                     {job.analysis.subtitles?.length ? (
                       <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
                         {job.analysis.subtitles.map((sub, idx) => (
                           <div
                             key={`${sub.start}-${sub.end}-${idx}`}
-                            className="rounded-lg bg-black/25 px-3 py-2"
+                            className="rounded-xl border border-black/8 bg-white px-3 py-2.5"
                           >
-                            <div className="text-[11px] text-white/35">
+                            <div className="text-[11px] text-neutral-400">
                               {formatSec(sub.start)} - {formatSec(sub.end)}
                             </div>
-                            <div className="mt-0.5 text-xs leading-5 text-white/90">
+                            <div className="mt-0.5 text-xs leading-5 text-neutral-800">
                               {sub.text}
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-lg bg-black/25 px-3 py-2 text-xs text-white/40">
+                      <div className="rounded-xl border border-black/8 bg-white px-3 py-2 text-xs text-neutral-400">
                         자막 정보가 없습니다.
                       </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-8 text-center text-xs text-white/35">
+                <div className="rounded-2xl border border-black/8 bg-[#faf8f4] px-4 py-8 text-center text-xs text-neutral-400">
                   아직 분석 결과가 없습니다.
                 </div>
               )}
@@ -839,10 +844,10 @@ export default function ShortformEditor() {
                 <video
                   src={job.artifacts.finalUrl}
                   controls
-                  className="w-full rounded-2xl border border-white/10 bg-black"
+                  className="w-full rounded-[24px] border border-black/8 bg-black"
                 />
               ) : (
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-10 text-center text-xs text-white/35">
+                <div className="rounded-2xl border border-black/8 bg-[#faf8f4] px-4 py-10 text-center text-xs text-neutral-400">
                   아직 최종 결과물이 없습니다.
                 </div>
               )}
