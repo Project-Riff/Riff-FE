@@ -9,9 +9,23 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get("video") as File | null;
+    const rawStoreInfo = formData.get("storeInfo");
 
     if (!file) {
       return NextResponse.json({ error: "파일이 없습니다." }, { status: 400 });
+    }
+
+    let storeInfo: Job["storeInfo"] | undefined;
+
+    if (typeof rawStoreInfo === "string" && rawStoreInfo.trim()) {
+      try {
+        storeInfo = JSON.parse(rawStoreInfo) as Job["storeInfo"];
+      } catch {
+        return NextResponse.json(
+          { error: "storeInfo 파싱에 실패했습니다." },
+          { status: 400 },
+        );
+      }
     }
 
     const jobId = createJobId();
@@ -33,6 +47,7 @@ export async function POST(request: Request) {
       updatedAt: now(),
       sourceName,
       sourcePath: targetPath,
+      storeInfo,
       artifacts: {
         sourcePath: targetPath,
       },
