@@ -11,6 +11,7 @@ import {
 } from "./ffmpeg";
 import { analyzeVideoWithGemini } from "./gemini";
 import { makeTtsWav } from "./macos-tts";
+import { renderRemotionOverlay } from "./remotion";
 import { writeSrtFile } from "./srt";
 import { AnalysisResult, ResumeFrom } from "./types";
 
@@ -74,6 +75,8 @@ function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
     paths.subtitlePath,
     paths.ttsPath,
     paths.bodyPath,
+    paths.overlayPath,
+    paths.overlaySourcePath,
     paths.bodyPath.replace(/\.mp4$/, "_padded.mp4"),
     paths.finalPath,
   ];
@@ -166,6 +169,7 @@ export async function runRealPipeline(jobId: string) {
     }
 
     let analysis: AnalysisResult;
+    let regeneratedAnalysis = false;
 
     const existingAnalysisPath =
       job.artifacts?.analysisPath && fs.existsSync(job.artifacts.analysisPath)
@@ -210,7 +214,8 @@ export async function runRealPipeline(jobId: string) {
         "Gemini 전체 영상 업로드 및 분석 시작",
       );
 
-      analysis = await analyzeVideoWithGemini(job.sourcePath);
+      analysis = await analyzeVideoWithGemini(job.sourcePath, job.storeInfo);
+      regeneratedAnalysis = true;
 
       assertAnalysis(analysis);
 
@@ -248,9 +253,13 @@ export async function runRealPipeline(jobId: string) {
     await pushJobLog(jobId, "analyzing", 55, "분석 및 자막 준비 완료");
 
     let clipPaths =
-      job.artifacts?.clipPaths && job.artifacts.clipPaths.length > 0
-        ? job.artifacts.clipPaths.filter((clipPath) => fs.existsSync(clipPath))
-        : [];
+      regeneratedAnalysis
+        ? []
+        : job.artifacts?.clipPaths && job.artifacts.clipPaths.length > 0
+          ? job.artifacts.clipPaths.filter((clipPath) =>
+              fs.existsSync(clipPath),
+            )
+          : [];
 
     if (resumeFrom !== "body") {
       await patchJob(jobId, {
@@ -341,6 +350,8 @@ export async function runRealPipeline(jobId: string) {
 
     const bodyMeta = await probeVideo(paths.bodyPath);
 
+    fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
+
     console.log(
       `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / target=${FINAL_VIDEO_DURATION}s`,
     );
@@ -348,7 +359,7 @@ export async function runRealPipeline(jobId: string) {
     await patchJob(jobId, {
       stage: "rendering",
       progress: 95,
-      message: "음성 및 자막 합성",
+      message: "디자인 오버레이 렌더링",
       analysis,
       artifacts: {
         analysisPath: paths.analysisPath,
@@ -360,10 +371,41 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "rendering", 95, "음성 및 자막 합성");
+    await pushJobLog(jobId, "rendering", 95, "디자인 오버레이 렌더링");
+
+    const overlayTitle =
+      analysis.heroTitle?.trim() || analysis.title || "맛집 숏폼";
+    const overlaySubtitle = analysis.heroSubtitle?.trim() || undefined;
+
+    await renderRemotionOverlay(
+      {
+        videoSrc: paths.overlaySourceUrl,
+        heroTitle: overlayTitle,
+        heroSubtitle: overlaySubtitle,
+      },
+      paths.overlayPath,
+    );
+
+    await patchJob(jobId, {
+      stage: "rendering",
+      progress: 97,
+      message: "음성 및 자막 합성",
+      analysis,
+      artifacts: {
+        analysisPath: paths.analysisPath,
+        clipPaths,
+        ttsPath: paths.ttsPath,
+        subtitlePath,
+        bodyPath: paths.bodyPath,
+        overlayPath: paths.overlayPath,
+      },
+      error: undefined,
+    });
+
+    await pushJobLog(jobId, "rendering", 97, "음성 및 자막 합성");
 
     await muxVideoWithAudioAndSubtitles(
-      paths.bodyPath,
+      paths.overlayPath,
       paths.ttsPath,
       subtitlePath,
       paths.finalPath,
@@ -386,6 +428,7 @@ export async function runRealPipeline(jobId: string) {
         ttsPath: paths.ttsPath,
         subtitlePath,
         bodyPath: paths.bodyPath,
+        overlayPath: paths.overlayPath,
         finalPath: paths.finalPath,
         finalUrl: paths.finalUrl,
       },

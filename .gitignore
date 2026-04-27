@@ -50,3 +50,8 @@ temp/
 
 # local storage
 /storage
+/public/riff-jobs/
+/ffmpeg-filter-guide.md
+/test-script.json
+/video-filter-presets.md
+/예시.ts

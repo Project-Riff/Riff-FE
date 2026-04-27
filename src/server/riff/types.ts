@@ -46,6 +46,8 @@ export type SubtitleItem = {
 
 export type AnalysisResult = {
   title: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
   mood: AnalysisMood;
   narration: string;
   bgmTags: string[];
@@ -68,6 +70,7 @@ export interface JobArtifacts {
   clipPaths?: string[];
   ttsPath?: string;
   bodyPath?: string;
+  overlayPath?: string;
   finalPath?: string;
   finalUrl?: string;
 }
