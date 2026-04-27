@@ -38,8 +38,18 @@ function normalizeDisplayTitle(title: string) {
   return romanizedCityMap[normalized] ?? normalized;
 }
 
+function hasHangul(text: string) {
+  return /[가-힣]/.test(text);
+}
+
 function getLetterOffsets(text: string) {
   const gap = text.length <= 5 ? 58 : 52;
+  const start = -((text.length - 1) * gap) / 2;
+  return Array.from({ length: text.length }, (_, index) => start + index * gap);
+}
+
+function getHangulLetterOffsets(text: string) {
+  const gap = text.length <= 3 ? 94 : text.length <= 5 ? 82 : 72;
   const start = -((text.length - 1) * gap) / 2;
   return Array.from({ length: text.length }, (_, index) => start + index * gap);
 }
@@ -48,8 +58,49 @@ const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const centerX = width / 2;
+  const titleTop = height * 0.38;
+  const isHangulTitle = hasHangul(title);
+
+  if (isHangulTitle) {
+    const offsets = getHangulLetterOffsets(title);
+
+    return (
+      <>
+        {title.split("").map((letter, index) => {
+          const phase = index * 0.7;
+          const x = centerX + offsets[index] + Math.sin(frame / 10 + phase) * 5;
+          const y = titleTop + Math.cos(frame / 14 + phase) * 2;
+          const rotation = Math.sin(frame / 10 + phase) * 5.5;
+
+          return (
+            <div
+              key={`${letter}-${index}`}
+              style={{
+                position: "absolute",
+                left: x,
+                top: y,
+                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                transformOrigin: "center center",
+                fontFamily:
+                  '"NanumSquareRound", "BM Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+                fontSize: 102,
+                lineHeight: 1,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                color: palette.cream,
+                textShadow: "0 2px 0 rgba(0,0,0,0.14)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {letter}
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
   const offsets = getLetterOffsets(title);
-  const titleTop = height * 0.43;
 
   return (
     <>
@@ -90,7 +141,7 @@ export const SeoulSwingVideo: React.FC = () => {
   const videoSrc = input.videoSrc?.startsWith("/")
     ? staticFile(input.videoSrc.replace(/^\//, ""))
     : input.videoSrc;
-  const subtitleTop = height * 0.47;
+  const subtitleTop = height * 0.42;
 
   if (!videoSrc) {
     return (

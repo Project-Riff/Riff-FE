@@ -255,15 +255,34 @@ export async function retimeClipToDuration(
   ]);
 }
 
-async function getTotalDuration(videoPaths: string[]) {
-  let total = 0;
-
-  for (const videoPath of videoPaths) {
-    const meta = await probeVideo(videoPath);
-    total += meta.duration;
+export async function trimClipToDuration(
+  inputPath: string,
+  outputPath: string,
+  targetDuration: number,
+): Promise<void> {
+  if (!Number.isFinite(targetDuration) || targetDuration <= 0) {
+    throw new Error(`targetDuration이 잘못되었습니다: ${targetDuration}`);
   }
 
-  return total;
+  ensureParentDir(outputPath);
+
+  await runCommand("ffmpeg", [
+    "-y",
+    "-i",
+    inputPath,
+    "-t",
+    String(targetDuration),
+    "-vf",
+    buildVerticalCoverFilter(),
+    "-an",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "23",
+    outputPath,
+  ]);
 }
 
 export async function normalizeClipsTo30s(
@@ -290,21 +309,29 @@ export async function normalizeClipsTo30s(
   }
 
   const normalized: string[] = [];
+  let usedDuration = 0;
 
   for (let i = 0; i < clipPaths.length; i += 1) {
     const inputPath = clipPaths[i];
-    const outputPath = path.join(outputDir, `clip_norm_${i + 1}.mp4`);
+    const clipDuration = durations[i];
 
-    let targetDuration =
-      (durations[i] / totalDuration) * FINAL_VIDEO_DURATION;
-
-    if (i === clipPaths.length - 1) {
-      const used = normalized.length > 0 ? await getTotalDuration(normalized) : 0;
-      targetDuration = Math.max(0.1, FINAL_VIDEO_DURATION - used);
+    if (usedDuration >= FINAL_VIDEO_DURATION) {
+      break;
     }
 
-    await retimeClipToDuration(inputPath, outputPath, targetDuration);
+    const remainingDuration = FINAL_VIDEO_DURATION - usedDuration;
+
+    if (clipDuration <= remainingDuration + 0.05) {
+      normalized.push(inputPath);
+      usedDuration += clipDuration;
+      continue;
+    }
+
+    const outputPath = path.join(outputDir, `clip_norm_${i + 1}.mp4`);
+    await trimClipToDuration(inputPath, outputPath, remainingDuration);
     normalized.push(outputPath);
+    usedDuration += remainingDuration;
+    break;
   }
 
   return normalized;

@@ -375,7 +375,10 @@ export async function runRealPipeline(jobId: string) {
 
     const overlayTitle =
       analysis.heroTitle?.trim() || analysis.title || "맛집 숏폼";
-    const overlaySubtitle = analysis.heroSubtitle?.trim() || undefined;
+    const overlaySubtitle =
+      job.storeInfo?.subtitle?.trim() ||
+      analysis.heroSubtitle?.trim() ||
+      undefined;
 
     await renderRemotionOverlay(
       {

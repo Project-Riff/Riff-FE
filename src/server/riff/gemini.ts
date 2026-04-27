@@ -26,6 +26,8 @@ function loadPrompt(storeInfo?: StoreInfo) {
   const contextLines = [
     storeInfo?.name ? `- 매장명: ${storeInfo.name}` : "",
     storeInfo?.address ? `- 주소: ${storeInfo.address}` : "",
+    storeInfo?.subtitle ? `- 부제 참고 문구: ${storeInfo.subtitle}` : "",
+    storeInfo?.strengths ? `- 가게 특장점: ${storeInfo.strengths}` : "",
     storeInfo?.hours ? `- 영업시간: ${storeInfo.hours}` : "",
     storeInfo?.phone ? `- 전화번호: ${storeInfo.phone}` : "",
     storeInfo?.instagram ? `- 인스타그램: ${storeInfo.instagram}` : "",
@@ -43,7 +45,12 @@ ${contextLines.join("\n")}
 
 [추가 규칙]
 - 위 매장 정보를 적극 반영하세요.
+- 오디오 스크립트와 대본의 핵심 내용은 **매장명, 주소, 가게 특장점** 이 3가지를 우선 재료로 삼아 작성하세요.
+- 위 3가지 정보가 있다면, 대본과 TTS 문장 안에 자연스럽게 녹여서 사용하세요.
 - title은 주소를 기준으로 대표 지역/도시명을 짧게 뽑아 작성하세요.
+- 입력된 부제가 있으면 subtitle 작성 시 우선 참고하세요.
+- 입력된 부제가 있으면 가능하면 그 문구를 최대한 유지하세요.
+- 입력된 가게 특장점이 있으면 대사와 포인트 선정에 적극 반영하세요.
 - subtitle은 매장 정보와 영상 내용을 조합해 한 줄 설명으로 작성하세요.
 `;
 }
@@ -197,6 +204,40 @@ function pickField(text: string, labels: string[]) {
   return "";
 }
 
+type ParsedRow = {
+  start: number;
+  end: number;
+  label: string;
+  text: string;
+};
+
+function dedupeParsedRows(rows: ParsedRow[]) {
+  const sorted = [...rows].sort((a, b) => a.start - b.start);
+  const deduped: ParsedRow[] = [];
+
+  for (const row of sorted) {
+    const previous = deduped[deduped.length - 1];
+
+    if (!previous) {
+      deduped.push(row);
+      continue;
+    }
+
+    const overlap = Math.min(previous.end, row.end) - Math.max(previous.start, row.start);
+    const almostSameWindow =
+      Math.abs(previous.start - row.start) < 1.5 &&
+      Math.abs(previous.end - row.end) < 1.5;
+
+    if (overlap >= 0.75 || almostSameWindow) {
+      continue;
+    }
+
+    deduped.push(row);
+  }
+
+  return deduped;
+}
+
 function parseGeminiTable(text: string): AnalysisResult {
   const heroTitle =
     pickField(text, ["제목", "heroTitle", "title"]) || "맛집 숏폼";
@@ -213,8 +254,7 @@ function parseGeminiTable(text: string): AnalysisResult {
     return true;
   });
 
-  const segments = [];
-  const subtitles = [];
+  const parsedRows: ParsedRow[] = [];
 
   for (let i = 0; i < rows.length; i += 1) {
     const cols = rows[i]
@@ -237,21 +277,28 @@ function parseGeminiTable(text: string): AnalysisResult {
         continue;
       }
 
-      segments.push({
+      parsedRows.push({
         start,
         end,
         label: visual || `구간 ${i + 1}`,
-      });
-
-      subtitles.push({
-        start,
-        end,
         text: script,
       });
     } catch {
       continue;
     }
   }
+
+  const dedupedRows = dedupeParsedRows(parsedRows);
+  const segments = dedupedRows.map(({ start, end, label }) => ({
+    start,
+    end,
+    label,
+  }));
+  const subtitles = dedupedRows.map(({ start, end, text }) => ({
+    start,
+    end,
+    text,
+  }));
 
   if (segments.length === 0) {
     throw new Error(`Gemini table 파싱 실패\nraw:\n${text}`);

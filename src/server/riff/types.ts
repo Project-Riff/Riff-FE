@@ -21,6 +21,8 @@ export type AnalysisMood = "energetic" | "cozy" | "premium" | "cute";
 export interface StoreInfo {
   name?: string;
   address?: string;
+  subtitle?: string;
+  strengths?: string;
   hours?: string;
   phone?: string;
   instagram?: string;

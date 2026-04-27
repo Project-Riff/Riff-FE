@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type StoreInfo = {
   name: string;
   address: string;
+  subtitle: string;
+  strengths: string;
   hours: string;
   phone: string;
   instagram: string;
@@ -233,6 +235,8 @@ export default function ShortformEditor() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo>({
     name: "",
     address: "",
+    subtitle: "",
+    strengths: "",
     hours: "",
     phone: "",
     instagram: "",
@@ -638,6 +642,18 @@ export default function ShortformEditor() {
                   value={storeInfo.phone}
                   onChange={(value) => updateStoreField("phone", value)}
                   placeholder="예: 010-1234-5678"
+                />
+                <Field
+                  label="부제"
+                  value={storeInfo.subtitle}
+                  onChange={(value) => updateStoreField("subtitle", value)}
+                  placeholder="예: 강남역 5분 거리, 유럽이 펼쳐진다"
+                />
+                <Field
+                  label="가게 특장점"
+                  value={storeInfo.strengths}
+                  onChange={(value) => updateStoreField("strengths", value)}
+                  placeholder="예: 로봇 바리스타, 넓은 좌석, 야간 방문"
                 />
                 <div className="md:col-span-2">
                   <Field
