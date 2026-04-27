@@ -14,6 +14,7 @@
     "@google/genai": "^1.50.1",
     "@vercel/blob": "^2.3.3",
     "framer-motion": "^12.38.0",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.511.0",
     "next": "^15.5.15",
     "react": "19.0.0",
