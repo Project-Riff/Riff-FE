@@ -46,9 +46,10 @@ function getLetterOffsets(text: string) {
 
 const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
+  const { width, height } = useVideoConfig();
   const centerX = width / 2;
   const offsets = getLetterOffsets(title);
+  const titleTop = height * 0.43;
 
   return (
     <>
@@ -63,13 +64,13 @@ const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
             style={{
               position: "absolute",
               left: x,
-              top: 438,
+              top: titleTop,
               transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
               transformOrigin: "center center",
               fontFamily: "Georgia, Times New Roman, serif",
               fontSize: 108,
               lineHeight: 1,
-              fontWeight: 700,
+              fontWeight: 600,
               color: palette.cream,
               textShadow: "0 2px 0 rgba(0,0,0,0.14)",
             }}
@@ -89,6 +90,7 @@ export const SeoulSwingVideo: React.FC = () => {
   const videoSrc = input.videoSrc?.startsWith("/")
     ? staticFile(input.videoSrc.replace(/^\//, ""))
     : input.videoSrc;
+  const subtitleTop = height * 0.47;
 
   if (!videoSrc) {
     return (
@@ -134,7 +136,7 @@ export const SeoulSwingVideo: React.FC = () => {
         <div
           style={{
             position: "absolute",
-            top: 506,
+            top: subtitleTop,
             left: "50%",
             transform: "translateX(-50%)",
             backgroundColor: "#fff",
