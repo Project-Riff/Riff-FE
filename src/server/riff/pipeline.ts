@@ -169,6 +169,7 @@ export async function runRealPipeline(jobId: string) {
     }
 
     let analysis: AnalysisResult;
+    let regeneratedAnalysis = false;
 
     const existingAnalysisPath =
       job.artifacts?.analysisPath && fs.existsSync(job.artifacts.analysisPath)
@@ -214,6 +215,7 @@ export async function runRealPipeline(jobId: string) {
       );
 
       analysis = await analyzeVideoWithGemini(job.sourcePath, job.storeInfo);
+      regeneratedAnalysis = true;
 
       assertAnalysis(analysis);
 
@@ -251,9 +253,13 @@ export async function runRealPipeline(jobId: string) {
     await pushJobLog(jobId, "analyzing", 55, "분석 및 자막 준비 완료");
 
     let clipPaths =
-      job.artifacts?.clipPaths && job.artifacts.clipPaths.length > 0
-        ? job.artifacts.clipPaths.filter((clipPath) => fs.existsSync(clipPath))
-        : [];
+      regeneratedAnalysis
+        ? []
+        : job.artifacts?.clipPaths && job.artifacts.clipPaths.length > 0
+          ? job.artifacts.clipPaths.filter((clipPath) =>
+              fs.existsSync(clipPath),
+            )
+          : [];
 
     if (resumeFrom !== "body") {
       await patchJob(jobId, {

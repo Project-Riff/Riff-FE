@@ -124,15 +124,48 @@ function parseTimeRange(timeStr: string) {
     .replace(/sec/gi, "")
     .trim();
 
-  const match = clean.match(/(\d+(?:\.\d+)?)\s*[~\-–]\s*(\d+(?:\.\d+)?)/);
+  const parseTimeToken = (value: string) => {
+    const token = value.trim();
+
+    if (/^\d+(?:\.\d+)?$/.test(token)) {
+      return Number(token);
+    }
+
+    const minuteSecondMatch = token.match(
+      /^(\d+):(\d{1,2})(?:\.(\d+))?$/,
+    );
+
+    if (minuteSecondMatch) {
+      const minutes = Number(minuteSecondMatch[1]);
+      const seconds = Number(minuteSecondMatch[2]);
+      const fraction = minuteSecondMatch[3]
+        ? Number(`0.${minuteSecondMatch[3]}`)
+        : 0;
+
+      return minutes * 60 + seconds + fraction;
+    }
+
+    return Number.NaN;
+  };
+
+  const match = clean.match(
+    /([\d:.]+)\s*[~\-–]\s*([\d:.]+)/,
+  );
 
   if (!match) {
     throw new Error(`시간 범위 파싱 실패: ${timeStr}`);
   }
 
+  const start = parseTimeToken(match[1]);
+  const end = parseTimeToken(match[2]);
+
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    throw new Error(`시간 토큰 파싱 실패: ${timeStr}`);
+  }
+
   return {
-    start: Number(match[1]),
-    end: Number(match[2]),
+    start,
+    end,
   };
 }
 
