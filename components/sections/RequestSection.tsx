@@ -1,184 +1,163 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useEffect, useState } from "react";
+import Lottie from "lottie-react";
 import SectionTitle from "@/components/ui/SectionTitle";
 import PrimaryButton from "@/components/ui/PrimaryButton";
+import requestAnimation from "@/public/lottie/Social.json";
 
-const initialForm = {
-  storeName: "",
-  contact: "",
-  category: "음식점",
-  menu: "",
-  point: "",
-  mood: "감성",
-  memo: "",
-};
+const GOOGLE_FORM_URL = process.env.NEXT_PUBLIC_GOOGLE_FORM_URL;
+
+const requestItems = [
+  "가게 이름 및 연락처",
+  "대표 메뉴 또는 대표 상품",
+  "영상 파일 업로드",
+  "BGM 사용 여부",
+  "추가 요청사항",
+];
+
+const typingTexts = [
+  "제작에 필요한 정보를\n간단히 남겨주세요.",
+  "매장의 분위기를\n영상으로 전해드려요.",
+  "짧은 클립만 보내도\n제작 방향을 잡아드려요.",
+];
 
 export default function RequestSection() {
-  const [form, setForm] = useState(initialForm);
-  const [submitted, setSubmitted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [textIndex, setTextIndex] = useState(0);
+  const [displayText, setDisplayText] = useState("");
+  const [phase, setPhase] = useState<"typing" | "pause" | "deleting">(
+    "typing"
+  );
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setForm(initialForm);
-  };
+  useEffect(() => {
+    const currentText = typingTexts[textIndex];
+
+    let timer: NodeJS.Timeout;
+
+    if (phase === "typing") {
+      if (displayText.length < currentText.length) {
+        timer = setTimeout(() => {
+          setDisplayText(currentText.slice(0, displayText.length + 1));
+        }, 80);
+      } else {
+        timer = setTimeout(() => {
+          setPhase("pause");
+        }, 900);
+      }
+    }
+
+    if (phase === "pause") {
+      timer = setTimeout(() => {
+        setPhase("deleting");
+      }, 600);
+    }
+
+    if (phase === "deleting") {
+      if (displayText.length > 0) {
+        timer = setTimeout(() => {
+          setDisplayText(currentText.slice(0, displayText.length - 1));
+        }, 45);
+      } else {
+        timer = setTimeout(() => {
+          setTextIndex((prev) => (prev + 1) % typingTexts.length);
+          setPhase("typing");
+        }, 250);
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, [displayText, phase, textIndex]);
 
   return (
-    <section
-      id="request"
-      className="scroll-mt-24 bg-white px-6 py-16"
-    >
-      <div className="mx-auto max-w-[960px]">
+    <section id="request" className="scroll-mt-24 overflow-hidden bg-white">
+      <div className="mx-auto max-w-[960px] px-6 py-12 md:py-16">
         <SectionTitle
           eyebrow="Request"
           title="제작 문의"
-          desc="아래 양식에 필요한 정보를 입력하시면 빠르게 연락드리겠습니다."
+          desc="구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다."
         />
 
-        <div className="grid gap-5 lg:grid-cols-[0.88fr_1.12fr]">
-          <div className="rounded-[16px] border border-[#f2f2f2] bg-white p-5">
-            <h3 className="font-[var(--font-serif)] text-[20px] leading-[1.3] text-[#111]">
-              어떤 정보를 보내면 되나요
-            </h3>
-
-            <ul className="mt-4 space-y-3 text-[13px] leading-[1.7] text-[#666]">
-              <li>• 가게 이름과 업종</li>
-              <li>• 대표 메뉴 또는 대표 상품</li>
-              <li>• 강조하고 싶은 포인트</li>
-              <li>• 원하는 분위기</li>
-            </ul>
-
-            <div className="mt-5 h-px bg-[#f3f3f3]" />
-
-            <p className="mt-4 text-[12px] leading-[1.7] text-[#888]">
-              사진과 짧은 영상 클립이 있으면 더 빠르게 작업 방향을
-              맞출 수 있습니다.
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-[16px] border border-[#f2f2f2] bg-white p-5"
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                  가게 이름
-                </span>
-                <input
-                  value={form.storeName}
-                  onChange={(e) =>
-                    setForm({ ...form, storeName: e.target.value })
-                  }
-                  className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none placeholder:text-[#b0b0b0] transition focus:border-[#d9d9d9]"
-                  placeholder="예: 리트모 김밥"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                  연락처
-                </span>
-                <input
-                  value={form.contact}
-                  onChange={(e) =>
-                    setForm({ ...form, contact: e.target.value })
-                  }
-                  className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none placeholder:text-[#b0b0b0] transition focus:border-[#d9d9d9]"
-                  placeholder="010-0000-0000"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                  업종
-                </span>
-                <select
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value })
-                  }
-                  className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none transition focus:border-[#d9d9d9]"
-                >
-                  <option>음식점</option>
-                  <option>카페</option>
-                  <option>헬스장</option>
-                  <option>네일샵</option>
-                  <option>기타 로컬 매장</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                  원하는 분위기
-                </span>
-                <select
-                  value={form.mood}
-                  onChange={(e) =>
-                    setForm({ ...form, mood: e.target.value })
-                  }
-                  className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none transition focus:border-[#d9d9d9]"
-                >
-                  <option>감성</option>
-                  <option>힙함</option>
-                  <option>깔끔함</option>
-                  <option>고급스러움</option>
-                  <option>가성비 강조</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="mt-4 block">
-              <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                대표 메뉴 또는 상품
-              </span>
-              <input
-                value={form.menu}
-                onChange={(e) => setForm({ ...form, menu: e.target.value })}
-                className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none placeholder:text-[#b0b0b0] transition focus:border-[#d9d9d9]"
-                placeholder="예: 김치삼겹덮밥, 아메리카노, 1:1 PT"
-              />
-            </label>
-
-            <label className="mt-4 block">
-              <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                강조 포인트
-              </span>
-              <input
-                value={form.point}
-                onChange={(e) => setForm({ ...form, point: e.target.value })}
-                className="w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none placeholder:text-[#b0b0b0] transition focus:border-[#d9d9d9]"
-                placeholder="예: 가성비 좋음, 39년 전통, 디저트 맛집"
-              />
-            </label>
-
-            <label className="mt-4 block">
-              <span className="mb-2 block text-[12px] font-medium text-[#666]">
-                추가 요청사항
-              </span>
-              <textarea
-                value={form.memo}
-                onChange={(e) => setForm({ ...form, memo: e.target.value })}
-                className="min-h-[120px] w-full rounded-[12px] border border-[#ededed] bg-white px-4 py-3 text-[13px] text-[#111] outline-none placeholder:text-[#b0b0b0] transition focus:border-[#d9d9d9]"
-                placeholder="예: 인스타 릴스용, 가격 정보 꼭 넣기, 지도 안내 문구 포함"
-              />
-            </label>
-
-            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <p className="text-[12px] leading-[1.6] text-[#888]">
-                보내주신 정보는 제작 문의 확인 용도로만 사용됩니다.
+        <div className="rounded-[20px] border border-[#f2f2f2] bg-white p-5 md:p-6">
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
+                Riff request form
               </p>
-              <PrimaryButton type="submit">문의 접수하기</PrimaryButton>
+
+              <h3 className="mt-3 min-h-[72px] whitespace-pre-line font-[var(--font-serif)] text-[24px] leading-[1.18] tracking-[-0.03em] text-[#111] md:min-h-[84px] md:text-[30px]">
+                {displayText}
+                <span className="ml-1 inline-block h-[1em] w-[2px] translate-y-[3px] animate-pulse bg-[#111]" />
+              </h3>
+
+              <p className="mt-3 max-w-[380px] text-[13px] leading-[1.8] text-[#666]">
+                가게 정보와 영상 파일을 남겨주시면 매장의 분위기에 맞는
+                방향으로 확인 후 연락드립니다.
+              </p>
+
+              <div className="mt-5 flex items-center gap-3">
+                <a
+                  href={GOOGLE_FORM_URL || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <PrimaryButton type="button">문의하기</PrimaryButton>
+                </a>
+
+                <span className="text-[12px] text-[#999]">
+                  새 창에서 열립니다.
+                </span>
+              </div>
             </div>
 
-            {submitted && (
-              <div className="mt-4 rounded-[12px] border border-[#ececec] bg-[#fafafa] px-4 py-3 text-[12px] leading-[1.7] text-[#666]">
-                문의가 접수되었습니다. 빠르게 연락드리겠습니다!
+            <div
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              className="relative rounded-[18px] border border-[#f2f2f2] bg-[#fcfcfc] p-4"
+            >
+              {isHovered && (
+                <div className="pointer-events-none absolute right-4 top-[-30px] z-20 h-[110px] w-[110px]">
+                  <Lottie animationData={requestAnimation} loop={false} autoplay />
+                </div>
+              )}
+
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
+                Checklist
+              </p>
+
+              <h4 className="mt-1 text-[15px] font-semibold text-[#111]">
+                작성 항목
+              </h4>
+
+              <div className="mt-4 grid gap-2.5">
+                {requestItems.map((item, index) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-3 rounded-[14px] border border-[#f2f2f2] bg-white px-3.5 py-2.5"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111] text-[10px] text-white">
+                      {index + 1}
+                    </span>
+                    <span className="text-[12px] leading-[1.6] text-[#666]">
+                      {item}
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
-          </form>
+
+              <div className="mt-4 rounded-[14px] border border-[#f2f2f2] bg-white px-3.5 py-2.5 text-[11px] leading-[1.7] text-[#777]">
+                사진과 짧은 영상 클립이 있으면 제작 방향을 더 빠르게 맞출 수
+                있습니다.
+              </div>
+            </div>
+          </div>
         </div>
+
+        {!GOOGLE_FORM_URL && (
+          <p className="mt-3 text-[12px] text-red-500">
+            NEXT_PUBLIC_GOOGLE_FORM_URL 환경변수가 설정되지 않았습니다.
+          </p>
+        )}
       </div>
     </section>
   );
