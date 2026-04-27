@@ -9,7 +9,10 @@ const EDGE_VOICE = "ko-KR-SunHiNeural"; // Edge TTS 목소리
 
 function run(cmd: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { 
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32"
+    });
 
     let stderr = "";
     p.stderr.on("data", (d) => {
@@ -25,7 +28,10 @@ function run(cmd: string, args: string[]) {
 
 function runCapture(cmd: string, args: string[]) {
   return new Promise<string>((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { 
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32"
+    });
 
     let stdout = "";
     let stderr = "";
@@ -124,16 +130,23 @@ async function fetchElevenLabsAudio(text: string, outPath: string) {
  * Edge TTS (Python)를 사용하여 오디오를 생성합니다. (무료)
  */
 async function fetchEdgeTtsAudio(text: string, outPath: string) {
-  await run("python", [
-    "-m",
-    "edge_tts",
-    "--text",
-    text,
-    "--write-media",
-    outPath,
-    "--voice",
-    EDGE_VOICE,
-  ]);
+  const tempTxtPath = outPath + ".txt";
+  fs.writeFileSync(tempTxtPath, text, "utf-8");
+
+  try {
+    await run("python", [
+      "-m",
+      "edge_tts",
+      "--file",
+      tempTxtPath,
+      "--write-media",
+      outPath,
+      "--voice",
+      EDGE_VOICE,
+    ]);
+  } finally {
+    if (fs.existsSync(tempTxtPath)) fs.unlinkSync(tempTxtPath);
+  }
 }
 
 export async function makeTtsWav(text: string, outWavPath: string) {

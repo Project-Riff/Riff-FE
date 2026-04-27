@@ -13,6 +13,7 @@ function run(command: string, args: string[]) {
     const child = spawn(command, args, {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
     });
 
     let stdout = "";
@@ -56,13 +57,22 @@ export async function renderRemotionOverlay(
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-  await run("npx", [
-    "remotion",
-    "render",
-    "remotion/index.ts",
-    "SeoulSwing",
-    outputPath,
-    "--props",
-    JSON.stringify(input),
-  ]);
+  const propsPath = outputPath + ".props.json";
+  fs.writeFileSync(propsPath, JSON.stringify(input), "utf-8");
+
+  try {
+    await run(process.platform === "win32" ? "npx.cmd" : "npx", [
+      "remotion",
+      "render",
+      "remotion/index.ts",
+      "SeoulSwing",
+      outputPath,
+      "--props",
+      propsPath,
+    ]);
+  } finally {
+    if (fs.existsSync(propsPath)) {
+      fs.unlinkSync(propsPath);
+    }
+  }
 }

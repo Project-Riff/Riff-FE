@@ -7,7 +7,7 @@ export default function SampleSection() {
       <div className="mx-auto max-w-[880px]">
         <SectionTitle
           eyebrow="Samples"
-          title="이런 느낌의 영상으로 제작합니다"
+          title={<><span className="text-[#ff7a2f]">이런 느낌</span>의 영상으로 제작합니다</>}
           desc="가성비 맛집, 감성 카페, 로컬 매장 홍보 등 다양한 유형의 쇼츠형 영상을 빠르게 제작합니다."
         />
 

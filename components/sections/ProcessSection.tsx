@@ -27,7 +27,7 @@ export default function ProcessSection() {
 
           <div className="mt-3 flex items-end justify-between gap-8">
             <h2 className="font-[var(--font-serif)] text-[28px] leading-[1.2] tracking-[-0.02em] text-[#111]">
-              어렵지 않게,
+              <span className="text-[#ff7a2f]">어렵지 않게,</span>
               <br />
               자연스럽게 진행됩니다
             </h2>
