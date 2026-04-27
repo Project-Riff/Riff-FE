@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import path from "path";
-import { AnalysisResult } from "./types";
+import { AnalysisResult, StoreInfo } from "./types";
 
 type GeminiFileLike = {
   name?: string;
@@ -19,9 +19,33 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function loadPrompt() {
+function loadPrompt(storeInfo?: StoreInfo) {
   const filePath = path.join(process.cwd(), "src/prompts/shortform.txt");
-  return fs.readFileSync(filePath, "utf-8");
+  const basePrompt = fs.readFileSync(filePath, "utf-8");
+
+  const contextLines = [
+    storeInfo?.name ? `- 매장명: ${storeInfo.name}` : "",
+    storeInfo?.address ? `- 주소: ${storeInfo.address}` : "",
+    storeInfo?.hours ? `- 영업시간: ${storeInfo.hours}` : "",
+    storeInfo?.phone ? `- 전화번호: ${storeInfo.phone}` : "",
+    storeInfo?.instagram ? `- 인스타그램: ${storeInfo.instagram}` : "",
+  ].filter(Boolean);
+
+  if (contextLines.length === 0) {
+    return basePrompt;
+  }
+
+  return `${basePrompt}
+
+### 🏪 매장 정보 (입력 컨텍스트):
+
+${contextLines.join("\n")}
+
+[추가 규칙]
+- 위 매장 정보를 적극 반영하세요.
+- title은 주소를 기준으로 대표 지역/도시명을 짧게 뽑아 작성하세요.
+- subtitle은 매장 정보와 영상 내용을 조합해 한 줄 설명으로 작성하세요.
+`;
 }
 
 function fileStateToString(file: unknown) {
@@ -121,7 +145,30 @@ function cleanScript(value: string) {
     .trim();
 }
 
+function pickField(text: string, labels: string[]) {
+  const lines = text.split("\n");
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    for (const label of labels) {
+      const pattern = new RegExp(`^${label}\\s*[:：]\\s*(.+)$`, "i");
+      const match = trimmed.match(pattern);
+
+      if (match?.[1]) {
+        return cleanScript(match[1]);
+      }
+    }
+  }
+
+  return "";
+}
+
 function parseGeminiTable(text: string): AnalysisResult {
+  const heroTitle =
+    pickField(text, ["제목", "heroTitle", "title"]) || "맛집 숏폼";
+  const heroSubtitle =
+    pickField(text, ["부제목", "heroSubtitle", "subtitle"]) || undefined;
   const lines = text
     .split("\n")
     .map((line) => line.trim())
@@ -179,6 +226,8 @@ function parseGeminiTable(text: string): AnalysisResult {
 
   return {
     title: "맛집 숏폼",
+    heroTitle,
+    heroSubtitle,
     mood: "energetic",
     narration: subtitles.map((item) => item.text).join(" "),
     bgmTags: ["food", "shortform", "instagram"],
@@ -189,6 +238,7 @@ function parseGeminiTable(text: string): AnalysisResult {
 
 export async function analyzeVideoWithGemini(
   videoPath: string,
+  storeInfo?: StoreInfo,
 ): Promise<AnalysisResult> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
@@ -202,7 +252,7 @@ export async function analyzeVideoWithGemini(
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-  const prompt = loadPrompt();
+  const prompt = loadPrompt(storeInfo);
 
   console.log("[Gemini] 업로드 시작");
 

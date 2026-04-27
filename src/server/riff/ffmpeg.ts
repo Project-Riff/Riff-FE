@@ -10,6 +10,20 @@ type ProbeResult = {
 };
 
 export const FINAL_VIDEO_DURATION = 30;
+export const TARGET_WIDTH = 1080;
+export const TARGET_HEIGHT = 1920;
+
+function buildVerticalCoverFilter(extraFilters: string[] = []) {
+  const filters = [
+    `scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase`,
+    `crop=${TARGET_WIDTH}:${TARGET_HEIGHT}`,
+    ...extraFilters,
+    "fps=60",
+    "format=yuv420p",
+  ];
+
+  return filters.join(",");
+}
 
 function runCommand(command: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
@@ -185,7 +199,7 @@ export async function cutSegments(
       "-t",
       String(duration),
       "-vf",
-      "scale=1080:-2,fps=60,format=yuv420p",
+      buildVerticalCoverFilter(),
       "-c:v",
       "libx264",
       "-preset",
@@ -227,7 +241,7 @@ export async function retimeClipToDuration(
     "-i",
     inputPath,
     "-vf",
-    `setpts=${speedFactor.toFixed(6)}*PTS,fps=60,format=yuv420p`,
+    buildVerticalCoverFilter([`setpts=${speedFactor.toFixed(6)}*PTS`]),
     "-t",
     String(targetDuration),
     "-an",
@@ -323,7 +337,7 @@ export async function concatClips(
       "-i",
       listPath,
       "-vf",
-      "fps=60,format=yuv420p",
+      buildVerticalCoverFilter(),
       "-c:v",
       "libx264",
       "-preset",
@@ -399,7 +413,9 @@ export async function muxVideoWithAudioAndSubtitles(
     "-i",
     audioPath,
     "-vf",
-    `subtitles=filename='${escapedSubtitlePath}',fps=60,format=yuv420p`,
+    buildVerticalCoverFilter([
+      `subtitles=filename='${escapedSubtitlePath}'`,
+    ]),
     "-map",
     "0:v:0",
     "-map",

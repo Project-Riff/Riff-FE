@@ -25,6 +25,9 @@ export function ensureJobDirs(jobId: string) {
     subtitlePath: path.join(jobRoot, "subtitles.srt"),
     ttsPath: path.join(jobRoot, "tts.wav"),
     bodyPath: path.join(jobRoot, "body.mp4"),
+    overlayPath: path.join(jobRoot, "overlay.mp4"),
+    overlaySourcePath: path.join(publicDir, "overlay-source.mp4"),
+    overlaySourceUrl: `/riff-jobs/${jobId}/overlay-source.mp4`,
 
     finalPath: path.join(publicDir, "final.mp4"),
     finalUrl: `/riff-jobs/${jobId}/final.mp4`,

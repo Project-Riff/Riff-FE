@@ -8,8 +8,13 @@ export const RemotionRoot = () => {
       component={SeoulSwingVideo}
       durationInFrames={1800}
       fps={60}
-      width={720}
-      height={1280}
+      width={1080}
+      height={1920}
+      defaultProps={{
+        videoSrc: '/sample-2.mp4',
+        heroTitle: 'Seoul',
+        heroSubtitle: '강남역 5분 거리, 유럽이 펼쳐진다',
+      }}
     />
   );
 };
