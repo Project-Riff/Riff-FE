@@ -52,5 +52,6 @@ temp/
 /storage
 /public/riff-jobs/
 /ffmpeg-filter-guide.md
-/test-scripts.json
+/test-script.json
 /video-filter-presets.md
+/예시.ts
