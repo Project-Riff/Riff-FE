@@ -7,7 +7,7 @@ export default function FaqSection() {
       <div className="mx-auto max-w-[960px]">
         <SectionTitle
           eyebrow="FAQ"
-          title="자주 받을 질문도 같이 정리했습니다"
+          title={<>자주 받을 <span className="text-[#ff7a2f]">질문</span>도 같이 정리했습니다</>}
           desc="궁금하신 부분은 언제든지 문의해 주세요. 빠르게 답변드리겠습니다."
         />
 

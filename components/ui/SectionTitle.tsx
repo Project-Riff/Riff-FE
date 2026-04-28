@@ -1,6 +1,6 @@
 type SectionTitleProps = {
   eyebrow: string;
-  title: string;
+  title: React.ReactNode; // string에서 React.ReactNode로 변경
   desc?: string;
 };
 

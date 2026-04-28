@@ -8,11 +8,11 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-black/5 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-6">
         <div className="flex items-center gap-10">
-            <Link href="/" className="group inline-flex items-center">
+          <Link href="/" className="group inline-flex items-center">
             <span className="font-[var(--font-serif)] text-[26px] tracking-[-0.04em] text-[#ff7a2f] transition duration-300 group-hover:text-[#ff8a3d]">
-                Riff
+              Riff
             </span>
-            </Link>
+          </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
             <Link

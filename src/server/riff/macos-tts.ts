@@ -2,10 +2,17 @@ import { spawn } from "child_process";
 import fs from "fs";
 
 const TARGET_AUDIO_DURATION = 29.5;
+// ElevenLabs 설정
+const ELEVENLABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
+const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // 기본 목소리 ID (필요시 변경 가능)
+const EDGE_VOICE = "ko-KR-SunHiNeural"; // Edge TTS 목소리
 
 function run(cmd: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { 
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32"
+    });
 
     let stderr = "";
     p.stderr.on("data", (d) => {
@@ -21,7 +28,10 @@ function run(cmd: string, args: string[]) {
 
 function runCapture(cmd: string, args: string[]) {
   return new Promise<string>((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { 
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32"
+    });
 
     let stdout = "";
     let stderr = "";
@@ -80,22 +90,86 @@ function buildAtempoFilter(speed: number) {
   return filters.join(",");
 }
 
+/**
+ * ElevenLabs API를 사용하여 오디오를 생성합니다.
+ */
+async function fetchElevenLabsAudio(text: string, outPath: string) {
+  if (!ELEVENLABS_API_KEY) {
+    throw new Error("ELEVEN_LABS_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.");
+  }
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVENLABS_API_KEY,
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ElevenLabs API Error (${response.status}): ${errorText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  fs.writeFileSync(outPath, Buffer.from(arrayBuffer));
+}
+
+/**
+ * Edge TTS (Python)를 사용하여 오디오를 생성합니다. (무료)
+ */
+async function fetchEdgeTtsAudio(text: string, outPath: string) {
+  const tempTxtPath = outPath + ".txt";
+  fs.writeFileSync(tempTxtPath, text, "utf-8");
+
+  try {
+    await run("python", [
+      "-m",
+      "edge_tts",
+      "--file",
+      tempTxtPath,
+      "--write-media",
+      outPath,
+      "--voice",
+      EDGE_VOICE,
+    ]);
+  } finally {
+    if (fs.existsSync(tempTxtPath)) fs.unlinkSync(tempTxtPath);
+  }
+}
+
 export async function makeTtsWav(text: string, outWavPath: string) {
-  const aiffPath = outWavPath.replace(/\.wav$/i, ".aiff");
+  const mp3Path = outWavPath.replace(/\.wav$/i, ".mp3");
   const rawWavPath = outWavPath.replace(/\.wav$/i, "_raw.wav");
   const fixedWavPath = outWavPath.replace(/\.wav$/i, "_fixed.wav");
 
-  if (fs.existsSync(aiffPath)) fs.unlinkSync(aiffPath);
-  if (fs.existsSync(rawWavPath)) fs.unlinkSync(rawWavPath);
-  if (fs.existsSync(fixedWavPath)) fs.unlinkSync(fixedWavPath);
-  if (fs.existsSync(outWavPath)) fs.unlinkSync(outWavPath);
+  // 기존 임시 파일 삭제
+  [mp3Path, rawWavPath, fixedWavPath, outWavPath].forEach(path => {
+    if (fs.existsSync(path)) fs.unlinkSync(path);
+  });
 
-  await run("say", ["-v", "Yuna", "-o", aiffPath, text]);
+  // 1. Edge TTS 호출 (MP3 생성) - 토큰 절약을 위해 우선 사용
+  await fetchEdgeTtsAudio(text, mp3Path);
 
+  // 1-alt. ElevenLabs API 호출 (실서비스 전환 시 위 줄을 주석처리하고 아래를 해제하세요)
+  // await fetchElevenLabsAudio(text, mp3Path);
+
+  // 2. MP3를 표준 WAV 포맷으로 변환
   await run("ffmpeg", [
     "-y",
     "-i",
-    aiffPath,
+    mp3Path,
     "-ar",
     "44100",
     "-ac",
@@ -105,6 +179,7 @@ export async function makeTtsWav(text: string, outWavPath: string) {
 
   const duration = await probeAudioDuration(rawWavPath);
 
+  // 3. 목표 시간(29.5초)보다 길 경우 배속 조절
   if (duration > TARGET_AUDIO_DURATION) {
     const speed = duration / TARGET_AUDIO_DURATION;
     const atempo = buildAtempoFilter(speed);
@@ -127,7 +202,8 @@ export async function makeTtsWav(text: string, outWavPath: string) {
     fs.renameSync(rawWavPath, outWavPath);
   }
 
-  if (fs.existsSync(aiffPath)) fs.unlinkSync(aiffPath);
-  if (fs.existsSync(rawWavPath)) fs.unlinkSync(rawWavPath);
-  if (fs.existsSync(fixedWavPath)) fs.unlinkSync(fixedWavPath);
+  // 임시 파일 정리
+  [mp3Path, rawWavPath, fixedWavPath].forEach(path => {
+    if (fs.existsSync(path)) fs.unlinkSync(path);
+  });
 }

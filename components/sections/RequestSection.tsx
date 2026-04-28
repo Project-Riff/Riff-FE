@@ -74,7 +74,7 @@ export default function RequestSection() {
       <div className="mx-auto max-w-[960px] px-6 py-12 md:py-16">
         <SectionTitle
           eyebrow="Request"
-          title="제작 문의"
+          title={<><span className="text-[#ff7a2f]">제작 문의</span></>}
           desc="구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다."
         />
 

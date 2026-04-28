@@ -7,7 +7,7 @@ export default function PricingSection() {
       <div className="mx-auto max-w-[960px]">
         <SectionTitle
           eyebrow="Pricing"
-          title="빠르게 시작할 수 있는 가격 구조"
+          title={<>빠르게 시작할 수 있는 <span className="text-[#ff7a2f]">가격 구조</span></>}
           desc="원하시는 영상 유형과 예산에 맞춰 선택할 수 있습니다."
         />
 
