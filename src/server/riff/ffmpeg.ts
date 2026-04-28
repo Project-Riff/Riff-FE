@@ -10,6 +10,7 @@ type ProbeResult = {
 };
 
 export const FINAL_VIDEO_DURATION = 30;
+export const MAX_FINAL_VIDEO_DURATION = 33;
 export const TARGET_WIDTH = 1080;
 export const TARGET_HEIGHT = 1920;
 
@@ -308,30 +309,52 @@ export async function normalizeClipsTo30s(
     throw new Error("normalizeClipsTo30s: 전체 clip 길이 계산 실패");
   }
 
+  if (totalDuration <= MAX_FINAL_VIDEO_DURATION + 0.05) {
+    return clipPaths;
+  }
+
   const normalized: string[] = [];
-  let usedDuration = 0;
+  const lastIndex = clipPaths.length - 1;
+  const lastClipPath = clipPaths[lastIndex];
+  const lastClipDuration = durations[lastIndex];
+
+  if (lastClipDuration >= MAX_FINAL_VIDEO_DURATION - 0.05) {
+    const outputPath = path.join(outputDir, `clip_norm_${lastIndex + 1}.mp4`);
+    await trimClipToDuration(lastClipPath, outputPath, MAX_FINAL_VIDEO_DURATION);
+    return [outputPath];
+  }
+
+  const targetDurationBeforeLast = Math.max(
+    0.1,
+    MAX_FINAL_VIDEO_DURATION - lastClipDuration,
+  );
+  let usedDurationBeforeLast = 0;
 
   for (let i = 0; i < clipPaths.length; i += 1) {
     const inputPath = clipPaths[i];
     const clipDuration = durations[i];
 
-    if (usedDuration >= FINAL_VIDEO_DURATION) {
+    if (i === lastIndex) {
+      normalized.push(inputPath);
       break;
     }
 
-    const remainingDuration = FINAL_VIDEO_DURATION - usedDuration;
+    if (usedDurationBeforeLast >= targetDurationBeforeLast) {
+      continue;
+    }
+
+    const remainingDuration = targetDurationBeforeLast - usedDurationBeforeLast;
 
     if (clipDuration <= remainingDuration + 0.05) {
       normalized.push(inputPath);
-      usedDuration += clipDuration;
+      usedDurationBeforeLast += clipDuration;
       continue;
     }
 
     const outputPath = path.join(outputDir, `clip_norm_${i + 1}.mp4`);
     await trimClipToDuration(inputPath, outputPath, remainingDuration);
     normalized.push(outputPath);
-    usedDuration += remainingDuration;
-    break;
+    usedDurationBeforeLast += remainingDuration;
   }
 
   return normalized;
@@ -430,6 +453,8 @@ export async function muxVideoWithAudioAndSubtitles(
   }
 
   ensureParentDir(outputPath);
+  const videoMeta = await probeVideo(videoPath);
+  const outputDuration = Math.min(videoMeta.duration, MAX_FINAL_VIDEO_DURATION);
 
   const escapedSubtitlePath = escapeSubtitlePathForFfmpeg(subtitlePath);
 
@@ -448,7 +473,7 @@ export async function muxVideoWithAudioAndSubtitles(
     "-map",
     "1:a:0",
     "-t",
-    String(FINAL_VIDEO_DURATION),
+    String(outputDuration),
     "-c:v",
     "libx264",
     "-preset",
@@ -456,7 +481,7 @@ export async function muxVideoWithAudioAndSubtitles(
     "-crf",
     "23",
     "-af",
-    `apad,atrim=0:${FINAL_VIDEO_DURATION}`,
+    `apad,atrim=0:${outputDuration}`,
     "-c:a",
     "aac",
     outputPath,

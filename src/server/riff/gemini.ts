@@ -1,7 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import path from "path";
-import { AnalysisResult, StoreInfo } from "./types";
+import {
+  AnalysisResult,
+  AnalysisSegment,
+  AnalysisShotType,
+  StoreInfo,
+  SubtitleItem,
+} from "./types";
 
 type GeminiFileLike = {
   name?: string;
@@ -19,8 +25,104 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function loadPrompt(storeInfo?: StoreInfo) {
-  const filePath = path.join(process.cwd(), "src/prompts/shortform.txt");
+function getRetryDelayMs(error: unknown) {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+
+  const message = error.message || "";
+  const retryMatch =
+    message.match(/retry in\s+([\d.]+)s/i) ||
+    message.match(/"retryDelay":"(\d+)s"/i);
+
+  if (!retryMatch?.[1]) {
+    return null;
+  }
+
+  const seconds = Number(retryMatch[1]);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+
+  return Math.ceil(seconds * 1000);
+}
+
+function shouldRetryUnavailable(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message || "";
+  return (
+    /"status":"UNAVAILABLE"/i.test(message) ||
+    /currently experiencing high demand/i.test(message) ||
+    /status:\s*503/i.test(message)
+  );
+}
+
+async function generateContentWithRetry(
+  ai: GoogleGenAI,
+  contents: Array<{
+    role: "user";
+    parts: Array<
+      | {
+          fileData: {
+            fileUri: string;
+            mimeType: string;
+          };
+        }
+      | {
+          text: string;
+        }
+    >;
+  }>,
+) {
+  const unavailableBackoffMs = [15000, 30000, 60000];
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= unavailableBackoffMs.length; attempt += 1) {
+    try {
+      return await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+      });
+    } catch (error) {
+      lastError = error;
+      const retryDelayMs = getRetryDelayMs(error);
+
+      if (retryDelayMs) {
+        console.log(
+          `[Gemini] quota 재시도 대기 ${(retryDelayMs / 1000).toFixed(1)}초`,
+        );
+
+        await sleep(retryDelayMs + 1000);
+        continue;
+      }
+
+      if (shouldRetryUnavailable(error) && attempt < unavailableBackoffMs.length) {
+        const fallbackDelayMs = unavailableBackoffMs[attempt];
+        console.log(
+          `[Gemini] 고부하 재시도 대기 ${(fallbackDelayMs / 1000).toFixed(1)}초 (${attempt + 1}/${unavailableBackoffMs.length})`,
+        );
+
+        await sleep(fallbackDelayMs);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Gemini generateContent 재시도 실패");
+}
+
+const FINAL_SCRIPT_DURATION = 30;
+
+function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
+  const filePath = path.join(process.cwd(), "src/prompts", promptFileName);
   const basePrompt = fs.readFileSync(filePath, "utf-8");
 
   const contextLines = [
@@ -45,13 +147,8 @@ ${contextLines.join("\n")}
 
 [추가 규칙]
 - 위 매장 정보를 적극 반영하세요.
-- 오디오 스크립트와 대본의 핵심 내용은 **매장명, 주소, 가게 특장점** 이 3가지를 우선 재료로 삼아 작성하세요.
-- 위 3가지 정보가 있다면, 대본과 TTS 문장 안에 자연스럽게 녹여서 사용하세요.
-- title은 주소를 기준으로 대표 지역/도시명을 짧게 뽑아 작성하세요.
-- 입력된 부제가 있으면 subtitle 작성 시 우선 참고하세요.
-- 입력된 부제가 있으면 가능하면 그 문구를 최대한 유지하세요.
-- 입력된 가게 특장점이 있으면 대사와 포인트 선정에 적극 반영하세요.
-- subtitle은 매장 정보와 영상 내용을 조합해 한 줄 설명으로 작성하세요.
+- 매장명, 주소, 가게 특장점을 우선적으로 반영하세요.
+- 입력된 부제가 있으면 우선 참고하세요.
 `;
 }
 
@@ -204,16 +301,50 @@ function pickField(text: string, labels: string[]) {
   return "";
 }
 
-type ParsedRow = {
+type ParsedCutRow = {
   start: number;
   end: number;
+  shotType: AnalysisShotType;
   label: string;
-  text: string;
 };
 
-function dedupeParsedRows(rows: ParsedRow[]) {
+const ALLOWED_SHOT_TYPES: AnalysisShotType[] = [
+  "food_hook",
+  "location",
+  "interior",
+  "food_detail",
+  "ending",
+];
+
+function parseShotType(value: string): AnalysisShotType | null {
+  const normalized = cleanScript(value).toLowerCase();
+  return ALLOWED_SHOT_TYPES.find((type) => type === normalized) ?? null;
+}
+
+function validateCutStructure(segments: AnalysisSegment[]) {
+  const first = segments[0];
+
+  if (!first || first.shotType !== "food_hook") {
+    throw new Error(
+      `컷 구조 검증 실패: 첫 컷 type이 food_hook이 아닙니다. firstType="${first?.shotType ?? ""}" firstLabel="${first?.label ?? ""}"`,
+    );
+  }
+
+  const earlyCuts = segments.slice(1, 3);
+  const hasEarlyLocationCut = earlyCuts.some((segment) =>
+    segment.shotType === "location" || segment.shotType === "interior",
+  );
+
+  if (!hasEarlyLocationCut) {
+    throw new Error(
+      `컷 구조 검증 실패: 2~3번째 컷에 location/interior 타입이 없습니다. cuts="${earlyCuts.map((segment) => `${segment.shotType}:${segment.label}`).join(" | ")}"`,
+    );
+  }
+}
+
+function dedupeCutRows(rows: ParsedCutRow[]) {
   const sorted = [...rows].sort((a, b) => a.start - b.start);
-  const deduped: ParsedRow[] = [];
+  const deduped: ParsedCutRow[] = [];
 
   for (const row of sorted) {
     const previous = deduped[deduped.length - 1];
@@ -238,11 +369,7 @@ function dedupeParsedRows(rows: ParsedRow[]) {
   return deduped;
 }
 
-function parseGeminiTable(text: string): AnalysisResult {
-  const heroTitle =
-    pickField(text, ["제목", "heroTitle", "title"]) || "맛집 숏폼";
-  const heroSubtitle =
-    pickField(text, ["부제목", "heroSubtitle", "subtitle"]) || undefined;
+function parseCutsTable(text: string): AnalysisSegment[] {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
@@ -250,11 +377,11 @@ function parseGeminiTable(text: string): AnalysisResult {
 
   const rows = lines.filter((line) => {
     if (line.includes(":---")) return false;
-    if (line.includes("시간") && line.includes("오디오")) return false;
+    if (line.includes("시간") && line.includes("화면")) return false;
     return true;
   });
 
-  const parsedRows: ParsedRow[] = [];
+  const parsedRows: ParsedCutRow[] = [];
 
   for (let i = 0; i < rows.length; i += 1) {
     const cols = rows[i]
@@ -266,74 +393,120 @@ function parseGeminiTable(text: string): AnalysisResult {
 
     try {
       const { start, end } = parseTimeRange(cols[0]);
-      const visual = cols[1] ?? "";
-      const script = cleanScript(cols[2] ?? "");
+      const shotType = parseShotType(cols[1] ?? "");
+      const visual = cols[2] ?? "";
 
       if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
         continue;
       }
 
-      if (!script) {
+      if (!shotType) {
         continue;
       }
 
       parsedRows.push({
         start,
         end,
+        shotType,
         label: visual || `구간 ${i + 1}`,
-        text: script,
       });
     } catch {
       continue;
     }
   }
 
-  const dedupedRows = dedupeParsedRows(parsedRows);
-  const segments = dedupedRows.map(({ start, end, label }) => ({
+  const dedupedRows = dedupeCutRows(parsedRows);
+  const segments = dedupedRows.map(({ start, end, shotType, label }) => ({
     start,
     end,
+    shotType,
     label,
-  }));
-  const subtitles = dedupedRows.map(({ start, end, text }) => ({
-    start,
-    end,
-    text,
   }));
 
   if (segments.length === 0) {
-    throw new Error(`Gemini table 파싱 실패\nraw:\n${text}`);
+    throw new Error(`Gemini cuts table 파싱 실패\nraw:\n${text}`);
   }
+
+  validateCutStructure(segments);
+
+  return segments;
+}
+
+function splitSubtitleChunks(value: string) {
+  return value
+    .split("/")
+    .map((item) => cleanScript(item))
+    .filter(Boolean);
+}
+
+function buildSubtitleItems(texts: string[]): SubtitleItem[] {
+  const safeTexts = texts.filter(Boolean);
+
+  if (safeTexts.length === 0) {
+    return [];
+  }
+
+  const unit = FINAL_SCRIPT_DURATION / safeTexts.length;
+
+  return safeTexts.map((text, index) => ({
+    start: index * unit,
+    end: index === safeTexts.length - 1 ? FINAL_SCRIPT_DURATION : (index + 1) * unit,
+    text,
+  }));
+}
+
+function buildFallbackSubtitleChunks(
+  narration: string,
+  heroSubtitle?: string,
+): string[] {
+  const candidate = narration || heroSubtitle || "매장 정보 소개";
+  return candidate
+    .split(/[.!?。！？]/)
+    .map((item) => cleanScript(item))
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function parseScriptResult(
+  text: string,
+  segments: AnalysisSegment[],
+  storeInfo?: StoreInfo,
+): AnalysisResult {
+  const heroTitle =
+    pickField(text, ["제목", "heroTitle", "title"]) || "맛집 숏폼";
+  const heroSubtitle =
+    storeInfo?.subtitle?.trim() ||
+    pickField(text, ["부제목", "heroSubtitle", "subtitle"]) ||
+    undefined;
+  const narration =
+    pickField(text, ["내레이션", "narration", "스크립트", "대본"]) ||
+    [storeInfo?.address, storeInfo?.name, storeInfo?.strengths]
+      .filter(Boolean)
+      .join(". ");
+  const subtitleChunkRaw = pickField(text, [
+    "자막문장들",
+    "subtitleChunks",
+    "subtitles",
+  ]);
+  const subtitleChunks =
+    splitSubtitleChunks(subtitleChunkRaw).length > 0
+      ? splitSubtitleChunks(subtitleChunkRaw)
+      : buildFallbackSubtitleChunks(narration, heroSubtitle);
+  const subtitles = buildSubtitleItems(subtitleChunks);
 
   return {
     title: "맛집 숏폼",
     heroTitle,
     heroSubtitle,
     mood: "energetic",
-    narration: subtitles.map((item) => item.text).join(" "),
+    narration,
     bgmTags: ["food", "shortform", "instagram"],
     segments,
     subtitles,
   };
 }
 
-export async function analyzeVideoWithGemini(
-  videoPath: string,
-  storeInfo?: StoreInfo,
-): Promise<AnalysisResult> {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY가 없습니다.");
-  }
-
-  if (!fs.existsSync(videoPath)) {
-    throw new Error(`영상 파일이 없습니다: ${videoPath}`);
-  }
-
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  });
-
-  const prompt = loadPrompt(storeInfo);
-
+async function uploadVideoAndWaitUntilActive(ai: GoogleGenAI, videoPath: string) {
   console.log("[Gemini] 업로드 시작");
 
   let uploaded = (await ai.files.upload({
@@ -362,35 +535,109 @@ export async function analyzeVideoWithGemini(
     throw new Error("Gemini ACTIVE 파일에서 fileUri를 찾지 못했습니다.");
   }
 
-  console.log("[Gemini] 분석 요청");
+  return {
+    fileUri,
+    mimeType,
+  };
+}
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            fileData: {
-              fileUri,
-              mimeType,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-    ],
-  });
+async function requestCutsWithGemini(
+  ai: GoogleGenAI,
+  videoPath: string,
+  storeInfo?: StoreInfo,
+) {
+  const prompt = loadPrompt("shortform-cuts.txt", storeInfo);
+  const uploaded = await uploadVideoAndWaitUntilActive(ai, videoPath);
+
+  console.log("[Gemini] 컷 분석 요청");
+
+  const response = await generateContentWithRetry(ai, [
+    {
+      role: "user",
+      parts: [
+        {
+          fileData: uploaded,
+        },
+        {
+          text: prompt,
+        },
+      ],
+    },
+  ]);
 
   const text = response.text ?? "";
 
   if (!text.trim()) {
-    throw new Error("Gemini 응답이 비어 있습니다.");
+    throw new Error("Gemini 컷 분석 응답이 비어 있습니다.");
   }
 
-  console.log("[Gemini raw]\n", text);
+  console.log("[Gemini cuts raw]\n", text);
 
-  return parseGeminiTable(text);
+  return parseCutsTable(text);
+}
+
+function buildCutSummary(segments: AnalysisSegment[]) {
+  return segments
+    .map(
+      (segment, index) =>
+        `${index + 1}. ${segment.start.toFixed(1)}~${segment.end.toFixed(1)} / ${segment.shotType} / ${segment.label}`,
+    )
+    .join("\n");
+}
+
+async function requestScriptWithGemini(
+  ai: GoogleGenAI,
+  segments: AnalysisSegment[],
+  storeInfo?: StoreInfo,
+) {
+  const prompt = loadPrompt("shortform-script.txt", storeInfo);
+  const cutSummary = buildCutSummary(segments);
+
+  console.log("[Gemini] 대본 생성 요청");
+
+  const response = await generateContentWithRetry(ai, [
+    {
+      role: "user",
+      parts: [
+        {
+          text: `${prompt}
+
+### 🎬 선택된 컷 요약
+
+${cutSummary}
+`,
+        },
+      ],
+    },
+  ]);
+
+  const text = response.text ?? "";
+
+  if (!text.trim()) {
+    throw new Error("Gemini 대본 생성 응답이 비어 있습니다.");
+  }
+
+  console.log("[Gemini script raw]\n", text);
+
+  return parseScriptResult(text, segments, storeInfo);
+}
+
+export async function analyzeVideoWithGemini(
+  videoPath: string,
+  storeInfo?: StoreInfo,
+): Promise<AnalysisResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY가 없습니다.");
+  }
+
+  if (!fs.existsSync(videoPath)) {
+    throw new Error(`영상 파일이 없습니다: ${videoPath}`);
+  }
+
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+
+  const segments = await requestCutsWithGemini(ai, videoPath, storeInfo);
+  return requestScriptWithGemini(ai, segments, storeInfo);
 }

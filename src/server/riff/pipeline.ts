@@ -8,6 +8,7 @@ import {
   concatClips,
   muxVideoWithAudioAndSubtitles,
   FINAL_VIDEO_DURATION,
+  MAX_FINAL_VIDEO_DURATION,
 } from "./ffmpeg";
 import { analyzeVideoWithGemini } from "./gemini";
 import { makeTtsWav } from "./macos-tts";
@@ -385,6 +386,9 @@ export async function runRealPipeline(jobId: string) {
         videoSrc: paths.overlaySourceUrl,
         heroTitle: overlayTitle,
         heroSubtitle: overlaySubtitle,
+        durationInFrames: Math.ceil(
+          Math.min(bodyMeta.duration, MAX_FINAL_VIDEO_DURATION) * 60,
+        ),
       },
       paths.overlayPath,
     );

@@ -34,10 +34,18 @@ export interface Segment {
   label?: string;
 }
 
+export type AnalysisShotType =
+  | "food_hook"
+  | "location"
+  | "interior"
+  | "food_detail"
+  | "ending";
+
 export type AnalysisSegment = {
   start: number;
   end: number;
   label: string;
+  shotType: AnalysisShotType;
 };
 
 export type SubtitleItem = {
