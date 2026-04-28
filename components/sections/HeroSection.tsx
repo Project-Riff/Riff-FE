@@ -98,7 +98,7 @@ export default function HeroSection() {
                   <img
                     src="/hero-wide.jpg"
                     alt="mood"
-                    className="aspect-[4/3] w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                    className="aspect-[4/3.5] w-full object-cover transition duration-700 group-hover:scale-[1.04]"
                   />
 
                   <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/10" />
@@ -116,7 +116,7 @@ export default function HeroSection() {
                     <img
                       src="/hero-detail-1.jpg"
                       alt="food"
-                      className="aspect-[4/5] md:aspect-[3/4] w-full object-cover transition duration-700 group-hover:scale-[1.05]"
+                      className="aspect-[4/5] md:aspect-[3/6] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
                     />
 
                     <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/12" />
@@ -132,7 +132,7 @@ export default function HeroSection() {
                     <img
                       src="/hero-detail-2.jpg"
                       alt="store"
-                      className="aspect-[4/5] md:aspect-[3/4] w-full object-cover transition duration-700 group-hover:scale-[1.05]"
+                      className="aspect-[4/5] md:aspect-[3/6] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
                     />
 
                     <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/12" />
@@ -140,19 +140,6 @@ export default function HeroSection() {
                     <div className="absolute inset-0 ring-1 ring-inset ring-black/5 transition duration-500 group-hover:ring-white/15" />
                   </motion.div>
                 </div>
-
-                {/* text card */}
-                <motion.div
-                  whileHover={{ y: -2 }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="group rounded-[16px] border border-[#f2f2f2] px-4 py-4 transition duration-300 hover:border-[#ebebeb] hover:bg-[#fcfcfc] hover:shadow-[0_10px_24px_rgba(0,0,0,0.04)]"
-                >
-                  <p className="text-[12px] leading-[1.8] text-[#666] transition duration-300 group-hover:text-[#444]">
-                    음식점, 카페, 작은 브랜드를 위한
-                    <br />
-                    무드 중심 숏폼 편집
-                  </p>
-                </motion.div>
               </div>
             </div>
           </motion.div>
