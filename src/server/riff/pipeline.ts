@@ -7,11 +7,10 @@ import {
   normalizeClipsTo30s,
   concatClips,
   muxVideoWithAudioAndSubtitles,
-  FINAL_VIDEO_DURATION,
   MAX_FINAL_VIDEO_DURATION,
 } from "./ffmpeg";
 import { analyzeVideoWithGemini } from "./gemini";
-import { makeTtsWav } from "./macos-tts";
+import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
 import { writeSrtFile } from "./srt";
 import { AnalysisResult, ResumeFrom } from "./types";
@@ -54,20 +53,6 @@ function shouldSkipTts(resumeFrom?: ResumeFrom) {
 
 function shouldSkipBody(resumeFrom?: ResumeFrom) {
   return resumeFrom === "body";
-}
-
-function buildTtsScript(analysis: AnalysisResult) {
-  if (analysis.subtitles?.length) {
-    return analysis.subtitles
-      .map((item) => item.text.trim())
-      .filter(Boolean)
-      .join(" ");
-  }
-
-  return (
-    analysis.narration ||
-    "또 먹고 싶은 이 집의 메뉴입니다. 이 비주얼은 그냥 지나치면 손해예요."
-  );
 }
 
 function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
@@ -315,10 +300,21 @@ export async function runRealPipeline(jobId: string) {
 
     await pushJobLog(jobId, "tts", 80, "TTS 생성 중");
 
-    const ttsScript = buildTtsScript(analysis);
-
     if (!shouldSkipTts(resumeFrom) || !fs.existsSync(paths.ttsPath)) {
-      await makeTtsWav(ttsScript, paths.ttsPath);
+      if (analysis.subtitles?.length) {
+        analysis.subtitles = await makeTimedTtsWav(
+          analysis.subtitles,
+          paths.ttsPath,
+        );
+        writeSrtFile(analysis.subtitles, subtitlePath);
+        fs.writeFileSync(
+          paths.analysisPath,
+          JSON.stringify(analysis, null, 2),
+          "utf-8",
+        );
+      } else {
+        await makeTtsWav(analysis.narration, paths.ttsPath);
+      }
       console.log(`[Pipeline] TTS 생성 완료 path=${paths.ttsPath}`);
     } else {
       assertFileExists(paths.ttsPath, "TTS");
@@ -354,7 +350,7 @@ export async function runRealPipeline(jobId: string) {
     fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
 
     console.log(
-      `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / target=${FINAL_VIDEO_DURATION}s`,
+      `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / allowed max=${MAX_FINAL_VIDEO_DURATION}s`,
     );
 
     await patchJob(jobId, {
@@ -386,6 +382,7 @@ export async function runRealPipeline(jobId: string) {
         videoSrc: paths.overlaySourceUrl,
         heroTitle: overlayTitle,
         heroSubtitle: overlaySubtitle,
+        infoSubtitles: analysis.subtitles,
         durationInFrames: Math.ceil(
           Math.min(bodyMeta.duration, MAX_FINAL_VIDEO_DURATION) * 60,
         ),
@@ -414,7 +411,7 @@ export async function runRealPipeline(jobId: string) {
     await muxVideoWithAudioAndSubtitles(
       paths.overlayPath,
       paths.ttsPath,
-      subtitlePath,
+      undefined,
       paths.finalPath,
     );
 

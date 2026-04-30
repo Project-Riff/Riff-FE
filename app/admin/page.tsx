@@ -9,8 +9,8 @@ export default function AdminPage() {
           관리자 페이지
         </h2>
         <p className="mt-3 text-sm leading-6 text-neutral-500">
-          Riff 내부 작업용 페이지입니다. 원본 영상 업로드, YouTube 링크 기반 작업 생성 등
-          관리자 전용 기능을 사용할 수 있습니다.
+          Riff 내부 작업용 페이지입니다. 원본 영상 업로드와 숏폼 생성 등 관리자 전용
+          기능을 사용할 수 있습니다.
         </p>
       </div>
 
@@ -29,7 +29,7 @@ export default function AdminPage() {
           </div>
 
           <p className="mt-3 text-sm leading-6 text-neutral-500">
-            원본 영상 업로드 또는 YouTube 링크를 기반으로 숏폼 작업을 생성합니다.
+            원본 영상을 업로드해 숏폼 작업을 생성합니다.
           </p>
         </Link>
       </div>

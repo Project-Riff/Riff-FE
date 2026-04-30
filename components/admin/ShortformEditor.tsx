@@ -226,7 +226,6 @@ export default function ShortformEditor() {
   const [bodyFile, setBodyFile] = useState<File | null>(null);
 
   const [resumeFrom, setResumeFrom] = useState<ResumeFrom>("full");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<JobResponse | null>(null);
   const [error, setError] = useState("");
@@ -413,10 +412,6 @@ export default function ShortformEditor() {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleYoutube = async () => {
-    setError("YouTube 다운로드 버전은 다음 단계에서 yt-dlp로 붙입니다.");
   };
 
   return (
@@ -666,25 +661,6 @@ export default function ShortformEditor() {
               </div>
             </SectionCard>
 
-            <SectionCard title="YouTube 링크" desc="현재는 준비 단계입니다.">
-              <div className="flex flex-col gap-2 md:flex-row">
-                <input
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  placeholder="YouTube URL 붙여넣기"
-                  className="flex-1 rounded-2xl border border-black/10 bg-[#f8f6f2] px-3 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-[#ff6a1a]/40"
-                />
-                <button
-                  type="button"
-                  onClick={handleYoutube}
-                  disabled={isUploading || !youtubeUrl.trim()}
-                  className="rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 disabled:opacity-40"
-                >
-                  YouTube 작업
-                </button>
-              </div>
-            </SectionCard>
-
             <button
               type="button"
               onClick={handleUpload}
@@ -729,7 +705,7 @@ export default function ShortformEditor() {
                 </div>
               </div>
 
-              <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+              <div className="apple-scroll max-h-[260px] space-y-2 overflow-y-auto pr-2">
                 {job?.logs?.length ? (
                   job.logs.map((log, idx) => (
                     <div
@@ -823,7 +799,7 @@ export default function ShortformEditor() {
                     </p>
 
                     {job.analysis.subtitles?.length ? (
-                      <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+                      <div className="apple-scroll max-h-[220px] space-y-2 overflow-y-auto pr-2">
                         {job.analysis.subtitles.map((sub, idx) => (
                           <div
                             key={`${sub.start}-${sub.end}-${idx}`}

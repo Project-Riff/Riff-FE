@@ -1,11 +1,11 @@
 import {Composition} from 'remotion';
-import {SeoulSwingVideo} from './SeoulSwingVideo';
+import {OverlayVideo} from './Overlay';
 
 export const RemotionRoot = () => {
   return (
     <Composition
       id="SeoulSwing"
-      component={SeoulSwingVideo}
+      component={OverlayVideo}
       durationInFrames={1800}
       calculateMetadata={({props}) => {
         return {
@@ -22,6 +22,10 @@ export const RemotionRoot = () => {
         videoSrc: '/sample-2.mp4',
         heroTitle: 'Seoul',
         heroSubtitle: '강남역 5분 거리, 유럽이 펼쳐진다',
+        infoSubtitles: [
+          {start: 0, end: 1, text: '서울 강남역 인근'},
+          {start: 1, end: 2, text: '하류식당입니다'},
+        ],
         durationInFrames: 1800,
       }}
     />

@@ -8,13 +8,18 @@ import {
   useVideoConfig,
 } from "remotion";
 
-type SeoulSwingInput = {
+type OverlayInput = {
   videoSrc?: string;
   heroTitle?: string;
   heroSubtitle?: string;
+  infoSubtitles?: Array<{
+    start: number;
+    end: number;
+    text: string;
+  }>;
 };
 
-const input = getInputProps() as SeoulSwingInput;
+const input = getInputProps() as OverlayInput;
 
 const palette = {
   cream: "#fff7f0",
@@ -58,7 +63,7 @@ const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const centerX = width / 2;
-  const titleTop = height * 0.38;
+  const titleTop = height * 0.34;
   const isHangulTitle = hasHangul(title);
 
   if (isHangulTitle) {
@@ -134,14 +139,23 @@ const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
   );
 };
 
-export const SeoulSwingVideo: React.FC = () => {
-  const { width, height } = useVideoConfig();
+export const OverlayVideo: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { width, height, fps } = useVideoConfig();
   const title = normalizeDisplayTitle(input.heroTitle?.trim() || "Seoul");
   const subtitle = input.heroSubtitle?.trim() || "";
+  const infoSubtitles = input.infoSubtitles ?? [];
   const videoSrc = input.videoSrc?.startsWith("/")
     ? staticFile(input.videoSrc.replace(/^\//, ""))
     : input.videoSrc;
-  const subtitleTop = height * 0.42;
+  const subtitleTop = height * 0.38;
+  const infoSubtitleTop = height * 0.65;
+  const currentSeconds = frame / fps;
+  const activeInfoSubtitle =
+    infoSubtitles.find(
+      (item) =>
+        currentSeconds >= item.start && currentSeconds < item.end,
+    ) ?? null;
 
   if (!videoSrc) {
     return (
@@ -203,6 +217,29 @@ export const SeoulSwingVideo: React.FC = () => {
           }}
         >
           {subtitle}
+        </div>
+      ) : null}
+      {activeInfoSubtitle ? (
+        <div
+          style={{
+            position: "absolute",
+            top: infoSubtitleTop,
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "78%",
+            fontFamily:
+              '"Pretendard Variable", "SUIT", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+            color: "#fffdf8",
+            fontSize: 34,
+            lineHeight: 1.25,
+            fontWeight: 500,
+            textAlign: "center",
+            letterSpacing: "-0.02em",
+            textShadow: "0 1px 10px rgba(0,0,0,0.28)",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {activeInfoSubtitle.text}
         </div>
       ) : null}
     </AbsoluteFill>

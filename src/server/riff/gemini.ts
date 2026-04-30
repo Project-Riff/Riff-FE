@@ -120,6 +120,8 @@ async function generateContentWithRetry(
 }
 
 const FINAL_SCRIPT_DURATION = 30;
+const EARLY_INFO_DURATION = 7;
+const TARGET_SUBTITLE_CHUNKS = 7;
 
 function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
   const filePath = path.join(process.cwd(), "src/prompts", promptFileName);
@@ -235,6 +237,21 @@ function parseTimeRange(timeStr: string) {
       return Number(token);
     }
 
+    const hourMinuteSecondMatch = token.match(
+      /^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/,
+    );
+
+    if (hourMinuteSecondMatch) {
+      const hours = Number(hourMinuteSecondMatch[1]);
+      const minutes = Number(hourMinuteSecondMatch[2]);
+      const seconds = Number(hourMinuteSecondMatch[3]);
+      const fraction = hourMinuteSecondMatch[4]
+        ? Number(`0.${hourMinuteSecondMatch[4]}`)
+        : 0;
+
+      return hours * 3600 + minutes * 60 + seconds + fraction;
+    }
+
     const minuteSecondMatch = token.match(
       /^(\d+):(\d{1,2})(?:\.(\d+))?$/,
     );
@@ -301,6 +318,41 @@ function pickField(text: string, labels: string[]) {
   return "";
 }
 
+function deriveRegionTitle(address?: string) {
+  if (!address) {
+    return "";
+  }
+
+  const normalized = address.trim();
+  const mapping: Array<[RegExp, string]> = [
+    [/^서울(?:특별시|시)?/, "서울"],
+    [/^부산(?:광역시|시)?/, "부산"],
+    [/^대구(?:광역시|시)?/, "대구"],
+    [/^인천(?:광역시|시)?/, "인천"],
+    [/^광주(?:광역시|시)?/, "광주"],
+    [/^대전(?:광역시|시)?/, "대전"],
+    [/^울산(?:광역시|시)?/, "울산"],
+    [/^세종(?:특별자치시|시)?/, "세종"],
+    [/^제주(?:특별자치도|도)?/, "제주"],
+    [/^경기(?:도)?/, "경기"],
+    [/^강원(?:특별자치도|도)?/, "강원"],
+    [/^충북|^충청북도/, "충북"],
+    [/^충남|^충청남도/, "충남"],
+    [/^전북|^전라북도|^전북특별자치도/, "전북"],
+    [/^전남|^전라남도/, "전남"],
+    [/^경북|^경상북도/, "경북"],
+    [/^경남|^경상남도/, "경남"],
+  ];
+
+  for (const [pattern, value] of mapping) {
+    if (pattern.test(normalized)) {
+      return value;
+    }
+  }
+
+  return normalized.split(/\s+/)[0] ?? "";
+}
+
 type ParsedCutRow = {
   start: number;
   end: number;
@@ -319,27 +371,6 @@ const ALLOWED_SHOT_TYPES: AnalysisShotType[] = [
 function parseShotType(value: string): AnalysisShotType | null {
   const normalized = cleanScript(value).toLowerCase();
   return ALLOWED_SHOT_TYPES.find((type) => type === normalized) ?? null;
-}
-
-function validateCutStructure(segments: AnalysisSegment[]) {
-  const first = segments[0];
-
-  if (!first || first.shotType !== "food_hook") {
-    throw new Error(
-      `컷 구조 검증 실패: 첫 컷 type이 food_hook이 아닙니다. firstType="${first?.shotType ?? ""}" firstLabel="${first?.label ?? ""}"`,
-    );
-  }
-
-  const earlyCuts = segments.slice(1, 3);
-  const hasEarlyLocationCut = earlyCuts.some((segment) =>
-    segment.shotType === "location" || segment.shotType === "interior",
-  );
-
-  if (!hasEarlyLocationCut) {
-    throw new Error(
-      `컷 구조 검증 실패: 2~3번째 컷에 location/interior 타입이 없습니다. cuts="${earlyCuts.map((segment) => `${segment.shotType}:${segment.label}`).join(" | ")}"`,
-    );
-  }
 }
 
 function dedupeCutRows(rows: ParsedCutRow[]) {
@@ -367,6 +398,39 @@ function dedupeCutRows(rows: ParsedCutRow[]) {
   }
 
   return deduped;
+}
+
+function validateCutDurations(segments: AnalysisSegment[]) {
+  if (segments.length === 0) {
+    return;
+  }
+
+  const durations = segments.map((segment) => segment.end - segment.start);
+  const tooShortCuts = segments.filter(
+    (segment) => segment.end - segment.start < 1.5,
+  );
+  const twoSecondCuts = durations.filter(
+    (duration) => duration >= 1.8 && duration <= 2.8,
+  );
+  const longCuts = durations.filter((duration) => duration >= 3 && duration <= 4);
+
+  if (tooShortCuts.length > 0) {
+    console.warn(
+      `[Gemini] 컷 길이 권장 이탈: 1.5초 미만 컷 ${tooShortCuts.length}개`,
+      tooShortCuts.map(
+        (segment) =>
+          `${segment.start.toFixed(1)}~${segment.end.toFixed(1)}(${(
+            segment.end - segment.start
+          ).toFixed(1)}s)`,
+      ),
+    );
+  }
+
+  if (twoSecondCuts.length < Math.ceil(segments.length * 0.6)) {
+    console.warn(
+      `[Gemini] 컷 길이 권장 이탈: 2초대 컷 비중 부족 total=${segments.length}, twoSecond=${twoSecondCuts.length}, long=${longCuts.length}`,
+    );
+  }
 }
 
 function parseCutsTable(text: string): AnalysisSegment[] {
@@ -427,7 +491,7 @@ function parseCutsTable(text: string): AnalysisSegment[] {
     throw new Error(`Gemini cuts table 파싱 실패\nraw:\n${text}`);
   }
 
-  validateCutStructure(segments);
+  validateCutDurations(segments);
 
   return segments;
 }
@@ -439,6 +503,33 @@ function splitSubtitleChunks(value: string) {
     .filter(Boolean);
 }
 
+function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
+  const normalized = texts
+    .map((item) => cleanScript(item))
+    .filter(Boolean)
+    .slice(0, TARGET_SUBTITLE_CHUNKS);
+
+  const fallback = fallbackSource
+    .map((item) => cleanScript(item))
+    .filter(Boolean);
+
+  let fallbackIndex = 0;
+
+  while (
+    normalized.length < TARGET_SUBTITLE_CHUNKS &&
+    fallbackIndex < fallback.length
+  ) {
+    normalized.push(fallback[fallbackIndex]);
+    fallbackIndex += 1;
+  }
+
+  while (normalized.length < TARGET_SUBTITLE_CHUNKS) {
+    normalized.push(`매장 정보 ${normalized.length + 1}`);
+  }
+
+  return normalized.slice(0, TARGET_SUBTITLE_CHUNKS);
+}
+
 function buildSubtitleItems(texts: string[]): SubtitleItem[] {
   const safeTexts = texts.filter(Boolean);
 
@@ -446,11 +537,14 @@ function buildSubtitleItems(texts: string[]): SubtitleItem[] {
     return [];
   }
 
-  const unit = FINAL_SCRIPT_DURATION / safeTexts.length;
+  const unit = EARLY_INFO_DURATION / safeTexts.length;
 
   return safeTexts.map((text, index) => ({
     start: index * unit,
-    end: index === safeTexts.length - 1 ? FINAL_SCRIPT_DURATION : (index + 1) * unit,
+    end:
+      index === safeTexts.length - 1
+        ? EARLY_INFO_DURATION
+        : (index + 1) * unit,
     text,
   }));
 }
@@ -460,11 +554,16 @@ function buildFallbackSubtitleChunks(
   heroSubtitle?: string,
 ): string[] {
   const candidate = narration || heroSubtitle || "매장 정보 소개";
-  return candidate
+  const baseChunks = candidate
     .split(/[.!?。！？]/)
     .map((item) => cleanScript(item))
-    .filter(Boolean)
-    .slice(0, 6);
+    .filter(Boolean);
+
+  return normalizeSubtitleChunks(baseChunks, [
+    heroSubtitle ?? "",
+    narration,
+    "매장 정보 소개",
+  ]);
 }
 
 function parseScriptResult(
@@ -473,7 +572,9 @@ function parseScriptResult(
   storeInfo?: StoreInfo,
 ): AnalysisResult {
   const heroTitle =
-    pickField(text, ["제목", "heroTitle", "title"]) || "맛집 숏폼";
+    deriveRegionTitle(storeInfo?.address) ||
+    pickField(text, ["제목", "heroTitle", "title"]) ||
+    "맛집 숏폼";
   const heroSubtitle =
     storeInfo?.subtitle?.trim() ||
     pickField(text, ["부제목", "heroSubtitle", "subtitle"]) ||
@@ -488,10 +589,15 @@ function parseScriptResult(
     "subtitleChunks",
     "subtitles",
   ]);
-  const subtitleChunks =
-    splitSubtitleChunks(subtitleChunkRaw).length > 0
-      ? splitSubtitleChunks(subtitleChunkRaw)
-      : buildFallbackSubtitleChunks(narration, heroSubtitle);
+  const subtitleChunks = splitSubtitleChunks(subtitleChunkRaw).length > 0
+    ? normalizeSubtitleChunks(splitSubtitleChunks(subtitleChunkRaw), [
+        heroSubtitle ?? "",
+        narration,
+        storeInfo?.address ?? "",
+        storeInfo?.name ?? "",
+        storeInfo?.strengths ?? "",
+      ])
+    : buildFallbackSubtitleChunks(narration, heroSubtitle);
   const subtitles = buildSubtitleItems(subtitleChunks);
 
   return {
