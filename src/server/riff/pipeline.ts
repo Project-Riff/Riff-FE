@@ -9,7 +9,11 @@ import {
   muxVideoWithAudioAndSubtitles,
   MAX_FINAL_VIDEO_DURATION,
 } from "./ffmpeg";
-import { analyzeVideoWithGemini } from "./gemini";
+import {
+  analyzeVideoWithGemini,
+  deriveRegionTitle,
+  regenerateScriptWithGemini,
+} from "./gemini";
 import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
 import { writeSrtFile } from "./srt";
@@ -33,6 +37,9 @@ function readJsonFile<T>(filePath: string): T {
 function shouldSkipAnalysis(resumeFrom?: ResumeFrom) {
   return (
     resumeFrom === "analysis" ||
+    resumeFrom === "script" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only" ||
     resumeFrom === "subtitle" ||
     resumeFrom === "tts" ||
     resumeFrom === "body"
@@ -48,11 +55,21 @@ function shouldSkipSubtitle(resumeFrom?: ResumeFrom) {
 }
 
 function shouldSkipTts(resumeFrom?: ResumeFrom) {
-  return resumeFrom === "tts" || resumeFrom === "body";
+  return (
+    resumeFrom === "tts" ||
+    resumeFrom === "body" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only"
+  );
 }
 
 function shouldSkipBody(resumeFrom?: ResumeFrom) {
-  return resumeFrom === "body";
+  return (
+    resumeFrom === "script" ||
+    resumeFrom === "body" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only"
+  );
 }
 
 function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
@@ -108,7 +125,13 @@ export async function runRealPipeline(jobId: string) {
 
     if (!job) throw new Error("job not found");
 
-    if (!job.sourcePath && job.resumeFrom !== "body") {
+    if (
+      !job.sourcePath &&
+      job.resumeFrom !== "body" &&
+      job.resumeFrom !== "script" &&
+      job.resumeFrom !== "title" &&
+      job.resumeFrom !== "subtitle-only"
+    ) {
       throw new Error("sourcePath가 없습니다.");
     }
 
@@ -123,7 +146,12 @@ export async function runRealPipeline(jobId: string) {
 
     let sourceMeta: Awaited<ReturnType<typeof probeVideo>> | undefined;
 
-    if (resumeFrom !== "body") {
+    if (
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       await patchJob(jobId, {
         stage: "probing",
         progress: 10,
@@ -214,6 +242,50 @@ export async function runRealPipeline(jobId: string) {
       console.log(`[Pipeline] analysis 저장 완료 path=${paths.analysisPath}`);
     }
 
+    if (resumeFrom === "script") {
+      await patchJob(jobId, {
+        stage: "analyzing",
+        progress: 32,
+        message: "기존 컷 기준으로 제목/부제/대본 재생성 중",
+        error: undefined,
+      });
+
+      await pushJobLog(
+        jobId,
+        "analyzing",
+        32,
+        "기존 컷 기준으로 제목/부제/대본 재생성 중",
+      );
+
+      analysis = await regenerateScriptWithGemini(analysis.segments, job.storeInfo);
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] script-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "title" && job.storeInfo?.address?.trim()) {
+      analysis.heroTitle = deriveRegionTitle(job.storeInfo.address);
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] title-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "subtitle-only" && job.storeInfo?.subtitle?.trim()) {
+      analysis.heroSubtitle = job.storeInfo.subtitle.trim();
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] subtitle-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
     assertAnalysis(analysis);
 
     if (!shouldSkipSubtitle(resumeFrom)) {
@@ -247,7 +319,12 @@ export async function runRealPipeline(jobId: string) {
             )
           : [];
 
-    if (resumeFrom !== "body") {
+    if (
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       await patchJob(jobId, {
         stage: "cutting",
         progress: 68,
@@ -281,7 +358,13 @@ export async function runRealPipeline(jobId: string) {
       }
     }
 
-    if (clipPaths.length === 0 && resumeFrom !== "body") {
+    if (
+      clipPaths.length === 0 &&
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       throw new Error("사용 가능한 clipPaths가 없습니다.");
     }
 

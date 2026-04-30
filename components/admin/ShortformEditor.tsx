@@ -18,7 +18,15 @@ type SubtitleItem = {
   text: string;
 };
 
-type ResumeFrom = "full" | "analysis" | "subtitle" | "tts" | "body";
+type ResumeFrom =
+  | "full"
+  | "analysis"
+  | "script"
+  | "title"
+  | "subtitle-only"
+  | "subtitle"
+  | "tts"
+  | "body";
 
 type JobResponse = {
   id: string;
@@ -165,36 +173,57 @@ function getResumeGuide(resumeFrom: ResumeFrom) {
   switch (resumeFrom) {
     case "full":
       return {
-        title: "전체 실행",
-        desc: "처음부터 전부 수행합니다.",
+        title: "처음부터 다시 만들기",
+        desc: "컷 편집, 제목/부제, 자막, TTS, 최종 렌더까지 전부 새로 만듭니다.",
         required: ["원본 영상"],
         optional: ["매장 정보"],
       };
     case "analysis":
       return {
-        title: "analysis.json부터 재개",
-        desc: "Gemini 분석은 건너뛰고 분석 결과를 바로 사용합니다.",
+        title: "기존 분석 결과로 다시 만들기",
+        desc: "이미 만들어진 분석 결과를 그대로 쓰고, 그 뒤 컷 편집/자막/TTS/렌더만 다시 진행합니다.",
         required: ["원본 영상", "analysis.json"],
+        optional: ["매장 정보"],
+      };
+    case "script":
+      return {
+        title: "컷은 유지하고 문구만 다시 만들기",
+        desc: "기존 컷 편집 결과와 body 영상은 그대로 두고, 제목/부제/대본/자막/TTS만 다시 만든 뒤 최종 렌더를 다시 진행합니다.",
+        required: ["analysis.json", "body.mp4"],
+        optional: ["매장 정보"],
+      };
+    case "title":
+      return {
+        title: "주소 기준 제목만 다시 적용하기",
+        desc: "컷, 자막, TTS는 유지하고 현재 주소를 기준으로 상단 제목만 다시 계산해 렌더합니다.",
+        required: ["analysis.json", "body.mp4", "tts.wav"],
+        optional: ["매장 정보"],
+      };
+    case "subtitle-only":
+      return {
+        title: "부제만 다시 적용하기",
+        desc: "컷, 자막, TTS는 유지하고 상단 부제만 새로 적용해 다시 렌더합니다.",
+        required: ["analysis.json", "body.mp4", "tts.wav"],
         optional: ["매장 정보"],
       };
     case "subtitle":
       return {
-        title: "subtitles.srt부터 재개",
-        desc: "분석과 자막 생성 단계를 건너뜁니다.",
+        title: "기존 분석 + 자막 기준으로 다시 만들기",
+        desc: "분석 결과와 자막은 유지하고, 그 뒤 영상 컷팅/TTS/렌더를 다시 진행합니다.",
         required: ["원본 영상", "analysis.json 또는 subtitles.srt"],
         optional: ["매장 정보"],
       };
     case "tts":
       return {
-        title: "tts.wav부터 재개",
-        desc: "분석, 자막, TTS 생성 단계를 건너뜁니다.",
+        title: "기존 자막 + TTS로 영상만 다시 만들기",
+        desc: "자막과 TTS는 유지하고, 영상 컷 편집과 최종 렌더를 다시 진행합니다.",
         required: ["원본 영상 또는 body.mp4", "tts.wav", "subtitles.srt"],
         optional: ["analysis.json"],
       };
     case "body":
       return {
-        title: "body.mp4부터 재개",
-        desc: "마지막 음성/자막 합성 단계만 진행합니다.",
+        title: "최종 합성만 다시 하기",
+        desc: "body 영상, TTS, 자막이 모두 준비된 상태에서 디자인 오버레이와 최종 합성만 다시 진행합니다.",
         required: ["body.mp4", "tts.wav", "subtitles.srt"],
         optional: [],
       };
@@ -327,6 +356,24 @@ export default function ShortformEditor() {
       if (!analysisFile) return "analysis 재개는 analysis.json이 필요합니다.";
     }
 
+    if (resumeFrom === "script") {
+      if (!analysisFile) return "script 재개는 analysis.json이 필요합니다.";
+      if (!bodyFile) return "script 재개는 body.mp4가 필요합니다.";
+    }
+
+    if (resumeFrom === "title") {
+      if (!analysisFile) return "title 재개는 analysis.json이 필요합니다.";
+      if (!bodyFile) return "title 재개는 body.mp4가 필요합니다.";
+      if (!ttsFile) return "title 재개는 tts.wav가 필요합니다.";
+      if (!storeInfo.address.trim()) return "title 재개는 주소 입력이 필요합니다.";
+    }
+
+    if (resumeFrom === "subtitle-only") {
+      if (!analysisFile) return "subtitle-only 재개는 analysis.json이 필요합니다.";
+      if (!bodyFile) return "subtitle-only 재개는 body.mp4가 필요합니다.";
+      if (!ttsFile) return "subtitle-only 재개는 tts.wav가 필요합니다.";
+    }
+
     if (resumeFrom === "subtitle") {
       if (!pickedFile) return "subtitle 재개는 원본 영상이 필요합니다.";
       if (!analysisFile && !subtitleFile) {
@@ -450,11 +497,14 @@ export default function ShortformEditor() {
                   onChange={(e) => setResumeFrom(e.target.value as ResumeFrom)}
                   className="w-full rounded-2xl border border-black/10 bg-[#f8f6f2] px-3 py-3 text-sm text-neutral-900 outline-none transition focus:border-[#ff6a1a]/40"
                 >
-                  <option value="full">전체 실행</option>
-                  <option value="analysis">analysis.json부터 재개</option>
-                  <option value="subtitle">subtitles.srt부터 재개</option>
-                  <option value="tts">tts.wav부터 재개</option>
-                  <option value="body">body.mp4부터 재개</option>
+                  <option value="full">처음부터 다시 만들기</option>
+                  <option value="analysis">기존 분석 결과로 다시 만들기</option>
+                  <option value="script">컷은 유지하고 문구만 다시 만들기</option>
+                  <option value="title">주소 기준 제목만 다시 적용하기</option>
+                  <option value="subtitle-only">부제만 다시 적용하기</option>
+                  <option value="subtitle">기존 분석 + 자막 기준으로 다시 만들기</option>
+                  <option value="tts">기존 자막 + TTS로 영상만 다시 만들기</option>
+                  <option value="body">최종 합성만 다시 하기</option>
                 </select>
 
                 <div className="rounded-2xl border border-[#ff6a1a]/15 bg-[#fff8f3] p-4">
@@ -581,7 +631,13 @@ export default function ShortformEditor() {
                     title="analysis.json"
                     file={analysisFile}
                     onClick={() => analysisRef.current?.click()}
-                    required={resumeFrom === "analysis" || resumeFrom === "subtitle"}
+                    required={
+                      resumeFrom === "analysis" ||
+                      resumeFrom === "script" ||
+                      resumeFrom === "title" ||
+                      resumeFrom === "subtitle-only" ||
+                      resumeFrom === "subtitle"
+                    }
                   />
                   <FilePickCard
                     title="subtitles.srt"
@@ -597,13 +653,23 @@ export default function ShortformEditor() {
                     title="tts.wav"
                     file={ttsFile}
                     onClick={() => ttsRef.current?.click()}
-                    required={resumeFrom === "tts" || resumeFrom === "body"}
+                    required={
+                      resumeFrom === "tts" ||
+                      resumeFrom === "body" ||
+                      resumeFrom === "title" ||
+                      resumeFrom === "subtitle-only"
+                    }
                   />
                   <FilePickCard
                     title="body.mp4"
                     file={bodyFile}
                     onClick={() => bodyRef.current?.click()}
-                    required={resumeFrom === "body"}
+                    required={
+                      resumeFrom === "script" ||
+                      resumeFrom === "body" ||
+                      resumeFrom === "title" ||
+                      resumeFrom === "subtitle-only"
+                    }
                   />
                 </div>
               </div>

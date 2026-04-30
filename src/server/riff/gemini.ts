@@ -318,7 +318,7 @@ function pickField(text: string, labels: string[]) {
   return "";
 }
 
-function deriveRegionTitle(address?: string) {
+export function deriveRegionTitle(address?: string) {
   if (!address) {
     return "";
   }
@@ -745,5 +745,20 @@ export async function analyzeVideoWithGemini(
   });
 
   const segments = await requestCutsWithGemini(ai, videoPath, storeInfo);
+  return requestScriptWithGemini(ai, segments, storeInfo);
+}
+
+export async function regenerateScriptWithGemini(
+  segments: AnalysisSegment[],
+  storeInfo?: StoreInfo,
+): Promise<AnalysisResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY가 없습니다.");
+  }
+
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+
   return requestScriptWithGemini(ai, segments, storeInfo);
 }

@@ -12,6 +12,9 @@ export type Stage =
 export type ResumeFrom =
   | "full"
   | "analysis"
+  | "script"
+  | "title"
+  | "subtitle-only"
   | "subtitle"
   | "tts"
   | "body";
