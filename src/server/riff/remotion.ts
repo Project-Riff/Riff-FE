@@ -6,6 +6,12 @@ type RemotionOverlayInput = {
   videoSrc: string;
   heroTitle: string;
   heroSubtitle?: string;
+  infoSubtitles?: Array<{
+    start: number;
+    end: number;
+    text: string;
+  }>;
+  durationInFrames?: number;
 };
 
 function run(command: string, args: string[]) {

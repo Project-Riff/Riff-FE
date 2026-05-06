@@ -9,10 +9,21 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get("video") as File | null;
+    const analysisFile = formData.get("analysis") as File | null;
+    const subtitleFile = formData.get("subtitle") as File | null;
+    const ttsFile = formData.get("tts") as File | null;
+    const bodyFile = formData.get("body") as File | null;
+    const resumeFrom =
+      typeof formData.get("resumeFrom") === "string"
+        ? String(formData.get("resumeFrom"))
+        : "full";
     const rawStoreInfo = formData.get("storeInfo");
 
-    if (!file) {
-      return NextResponse.json({ error: "파일이 없습니다." }, { status: 400 });
+    if (!file && !bodyFile && !analysisFile && !subtitleFile && !ttsFile) {
+      return NextResponse.json(
+        { error: "업로드할 파일이 없습니다." },
+        { status: 400 },
+      );
     }
 
     let storeInfo: Job["storeInfo"] | undefined;
@@ -31,12 +42,37 @@ export async function POST(request: Request) {
     const jobId = createJobId();
     const paths = ensureJobDirs(jobId);
 
-    const sourceName = sanitizeFilename(file.name);
-    const ext = sourceName.split(".").pop() || "mp4";
-    const targetPath = paths.sourcePath.replace(/\.mp4$/, `.${ext}`);
+    let sourceName: string | undefined;
+    let targetPath: string | undefined;
 
-    const bytes = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(targetPath, bytes);
+    if (file) {
+      sourceName = sanitizeFilename(file.name);
+      const ext = sourceName.split(".").pop() || "mp4";
+      targetPath = paths.sourcePath.replace(/\.mp4$/, `.${ext}`);
+
+      const bytes = Buffer.from(await file.arrayBuffer());
+      fs.writeFileSync(targetPath, bytes);
+    }
+
+    if (analysisFile) {
+      const bytes = Buffer.from(await analysisFile.arrayBuffer());
+      fs.writeFileSync(paths.analysisPath, bytes);
+    }
+
+    if (subtitleFile) {
+      const bytes = Buffer.from(await subtitleFile.arrayBuffer());
+      fs.writeFileSync(paths.subtitlePath, bytes);
+    }
+
+    if (ttsFile) {
+      const bytes = Buffer.from(await ttsFile.arrayBuffer());
+      fs.writeFileSync(paths.ttsPath, bytes);
+    }
+
+    if (bodyFile) {
+      const bytes = Buffer.from(await bodyFile.arrayBuffer());
+      fs.writeFileSync(paths.bodyPath, bytes);
+    }
 
     const job: Job = {
       id: jobId,
@@ -48,8 +84,13 @@ export async function POST(request: Request) {
       sourceName,
       sourcePath: targetPath,
       storeInfo,
+      resumeFrom: resumeFrom as Job["resumeFrom"],
       artifacts: {
         sourcePath: targetPath,
+        analysisPath: analysisFile ? paths.analysisPath : undefined,
+        subtitlePath: subtitleFile ? paths.subtitlePath : undefined,
+        ttsPath: ttsFile ? paths.ttsPath : undefined,
+        bodyPath: bodyFile ? paths.bodyPath : undefined,
       },
       logs: [
         {

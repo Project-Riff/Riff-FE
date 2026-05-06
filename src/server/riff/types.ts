@@ -12,6 +12,9 @@ export type Stage =
 export type ResumeFrom =
   | "full"
   | "analysis"
+  | "script"
+  | "title"
+  | "subtitle-only"
   | "subtitle"
   | "tts"
   | "body";
@@ -21,6 +24,8 @@ export type AnalysisMood = "energetic" | "cozy" | "premium" | "cute";
 export interface StoreInfo {
   name?: string;
   address?: string;
+  subtitle?: string;
+  strengths?: string;
   hours?: string;
   phone?: string;
   instagram?: string;
@@ -32,10 +37,18 @@ export interface Segment {
   label?: string;
 }
 
+export type AnalysisShotType =
+  | "food_hook"
+  | "location"
+  | "interior"
+  | "food_detail"
+  | "ending";
+
 export type AnalysisSegment = {
   start: number;
   end: number;
   label: string;
+  shotType: AnalysisShotType;
 };
 
 export type SubtitleItem = {

@@ -7,10 +7,14 @@ import {
   normalizeClipsTo30s,
   concatClips,
   muxVideoWithAudioAndSubtitles,
-  FINAL_VIDEO_DURATION,
+  MAX_FINAL_VIDEO_DURATION,
 } from "./ffmpeg";
-import { analyzeVideoWithGemini } from "./gemini";
-import { makeTtsWav } from "./macos-tts";
+import {
+  analyzeVideoWithGemini,
+  deriveRegionTitle,
+  regenerateScriptWithGemini,
+} from "./gemini";
+import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
 import { writeSrtFile } from "./srt";
 import { AnalysisResult, ResumeFrom } from "./types";
@@ -33,6 +37,9 @@ function readJsonFile<T>(filePath: string): T {
 function shouldSkipAnalysis(resumeFrom?: ResumeFrom) {
   return (
     resumeFrom === "analysis" ||
+    resumeFrom === "script" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only" ||
     resumeFrom === "subtitle" ||
     resumeFrom === "tts" ||
     resumeFrom === "body"
@@ -48,24 +55,20 @@ function shouldSkipSubtitle(resumeFrom?: ResumeFrom) {
 }
 
 function shouldSkipTts(resumeFrom?: ResumeFrom) {
-  return resumeFrom === "tts" || resumeFrom === "body";
+  return (
+    resumeFrom === "tts" ||
+    resumeFrom === "body" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only"
+  );
 }
 
 function shouldSkipBody(resumeFrom?: ResumeFrom) {
-  return resumeFrom === "body";
-}
-
-function buildTtsScript(analysis: AnalysisResult) {
-  if (analysis.subtitles?.length) {
-    return analysis.subtitles
-      .map((item) => item.text.trim())
-      .filter(Boolean)
-      .join(" ");
-  }
-
   return (
-    analysis.narration ||
-    "또 먹고 싶은 이 집의 메뉴입니다. 이 비주얼은 그냥 지나치면 손해예요."
+    resumeFrom === "script" ||
+    resumeFrom === "body" ||
+    resumeFrom === "title" ||
+    resumeFrom === "subtitle-only"
   );
 }
 
@@ -122,7 +125,13 @@ export async function runRealPipeline(jobId: string) {
 
     if (!job) throw new Error("job not found");
 
-    if (!job.sourcePath && job.resumeFrom !== "body") {
+    if (
+      !job.sourcePath &&
+      job.resumeFrom !== "body" &&
+      job.resumeFrom !== "script" &&
+      job.resumeFrom !== "title" &&
+      job.resumeFrom !== "subtitle-only"
+    ) {
       throw new Error("sourcePath가 없습니다.");
     }
 
@@ -137,7 +146,12 @@ export async function runRealPipeline(jobId: string) {
 
     let sourceMeta: Awaited<ReturnType<typeof probeVideo>> | undefined;
 
-    if (resumeFrom !== "body") {
+    if (
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       await patchJob(jobId, {
         stage: "probing",
         progress: 10,
@@ -228,6 +242,50 @@ export async function runRealPipeline(jobId: string) {
       console.log(`[Pipeline] analysis 저장 완료 path=${paths.analysisPath}`);
     }
 
+    if (resumeFrom === "script") {
+      await patchJob(jobId, {
+        stage: "analyzing",
+        progress: 32,
+        message: "기존 컷 기준으로 제목/부제/대본 재생성 중",
+        error: undefined,
+      });
+
+      await pushJobLog(
+        jobId,
+        "analyzing",
+        32,
+        "기존 컷 기준으로 제목/부제/대본 재생성 중",
+      );
+
+      analysis = await regenerateScriptWithGemini(analysis.segments, job.storeInfo);
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] script-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "title" && job.storeInfo?.address?.trim()) {
+      analysis.heroTitle = deriveRegionTitle(job.storeInfo.address);
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] title-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "subtitle-only" && job.storeInfo?.subtitle?.trim()) {
+      analysis.heroSubtitle = job.storeInfo.subtitle.trim();
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] subtitle-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
     assertAnalysis(analysis);
 
     if (!shouldSkipSubtitle(resumeFrom)) {
@@ -261,7 +319,12 @@ export async function runRealPipeline(jobId: string) {
             )
           : [];
 
-    if (resumeFrom !== "body") {
+    if (
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       await patchJob(jobId, {
         stage: "cutting",
         progress: 68,
@@ -295,7 +358,13 @@ export async function runRealPipeline(jobId: string) {
       }
     }
 
-    if (clipPaths.length === 0 && resumeFrom !== "body") {
+    if (
+      clipPaths.length === 0 &&
+      resumeFrom !== "body" &&
+      resumeFrom !== "script" &&
+      resumeFrom !== "title" &&
+      resumeFrom !== "subtitle-only"
+    ) {
       throw new Error("사용 가능한 clipPaths가 없습니다.");
     }
 
@@ -314,10 +383,21 @@ export async function runRealPipeline(jobId: string) {
 
     await pushJobLog(jobId, "tts", 80, "TTS 생성 중");
 
-    const ttsScript = buildTtsScript(analysis);
-
     if (!shouldSkipTts(resumeFrom) || !fs.existsSync(paths.ttsPath)) {
-      await makeTtsWav(ttsScript, paths.ttsPath);
+      if (analysis.subtitles?.length) {
+        analysis.subtitles = await makeTimedTtsWav(
+          analysis.subtitles,
+          paths.ttsPath,
+        );
+        writeSrtFile(analysis.subtitles, subtitlePath);
+        fs.writeFileSync(
+          paths.analysisPath,
+          JSON.stringify(analysis, null, 2),
+          "utf-8",
+        );
+      } else {
+        await makeTtsWav(analysis.narration, paths.ttsPath);
+      }
       console.log(`[Pipeline] TTS 생성 완료 path=${paths.ttsPath}`);
     } else {
       assertFileExists(paths.ttsPath, "TTS");
@@ -353,7 +433,7 @@ export async function runRealPipeline(jobId: string) {
     fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
 
     console.log(
-      `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / target=${FINAL_VIDEO_DURATION}s`,
+      `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / allowed max=${MAX_FINAL_VIDEO_DURATION}s`,
     );
 
     await patchJob(jobId, {
@@ -375,13 +455,20 @@ export async function runRealPipeline(jobId: string) {
 
     const overlayTitle =
       analysis.heroTitle?.trim() || analysis.title || "맛집 숏폼";
-    const overlaySubtitle = analysis.heroSubtitle?.trim() || undefined;
+    const overlaySubtitle =
+      job.storeInfo?.subtitle?.trim() ||
+      analysis.heroSubtitle?.trim() ||
+      undefined;
 
     await renderRemotionOverlay(
       {
         videoSrc: paths.overlaySourceUrl,
         heroTitle: overlayTitle,
         heroSubtitle: overlaySubtitle,
+        infoSubtitles: analysis.subtitles,
+        durationInFrames: Math.ceil(
+          Math.min(bodyMeta.duration, MAX_FINAL_VIDEO_DURATION) * 60,
+        ),
       },
       paths.overlayPath,
     );
@@ -407,7 +494,7 @@ export async function runRealPipeline(jobId: string) {
     await muxVideoWithAudioAndSubtitles(
       paths.overlayPath,
       paths.ttsPath,
-      subtitlePath,
+      undefined,
       paths.finalPath,
     );
 
