@@ -121,8 +121,9 @@ async function generateContentWithRetry(
 }
 
 const FINAL_SCRIPT_DURATION = 30;
-const EARLY_INFO_DURATION = 7;
-const TARGET_SUBTITLE_CHUNKS = 7;
+const EARLY_INFO_DURATION = 14;
+const MIN_SUBTITLE_CHUNKS = 5;
+const MAX_SUBTITLE_CHUNKS = 7;
 
 function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
   const filePath = path.join(process.cwd(), "src/prompts", promptFileName);
@@ -568,7 +569,7 @@ function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
   const normalized = texts
     .map((item) => cleanScript(item))
     .filter(Boolean)
-    .slice(0, TARGET_SUBTITLE_CHUNKS);
+    .slice(0, MAX_SUBTITLE_CHUNKS);
 
   const fallback = fallbackSource
     .map((item) => cleanScript(item))
@@ -577,18 +578,18 @@ function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
   let fallbackIndex = 0;
 
   while (
-    normalized.length < TARGET_SUBTITLE_CHUNKS &&
+    normalized.length < MIN_SUBTITLE_CHUNKS &&
     fallbackIndex < fallback.length
   ) {
     normalized.push(fallback[fallbackIndex]);
     fallbackIndex += 1;
   }
 
-  while (normalized.length < TARGET_SUBTITLE_CHUNKS) {
+  while (normalized.length < MIN_SUBTITLE_CHUNKS) {
     normalized.push(`매장 정보 ${normalized.length + 1}`);
   }
 
-  return normalized.slice(0, TARGET_SUBTITLE_CHUNKS);
+  return normalized.slice(0, MAX_SUBTITLE_CHUNKS);
 }
 
 function buildSubtitleItems(texts: string[]): SubtitleItem[] {
