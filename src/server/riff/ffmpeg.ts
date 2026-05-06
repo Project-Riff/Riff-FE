@@ -231,7 +231,8 @@ export async function cutSegments(
       "veryfast",
       "-crf",
       "23",
-      "-an",
+      "-c:a",
+      "aac",
       clipPath,
     ]);
 
@@ -269,13 +270,14 @@ export async function retimeClipToDuration(
     buildVerticalCoverFilter([`setpts=${speedFactor.toFixed(6)}*PTS`]),
     "-t",
     String(targetDuration),
-    "-an",
     "-c:v",
     "libx264",
     "-preset",
     "veryfast",
     "-crf",
     "23",
+    "-c:a",
+    "aac",
     outputPath,
   ]);
 }
@@ -299,13 +301,14 @@ export async function trimClipToDuration(
     String(targetDuration),
     "-vf",
     buildVerticalCoverFilter(),
-    "-an",
     "-c:v",
     "libx264",
     "-preset",
     "veryfast",
     "-crf",
     "23",
+    "-c:a",
+    "aac",
     outputPath,
   ]);
 }
@@ -334,9 +337,10 @@ export async function normalizeClipsTo30s(
   }
 
   if (totalDuration < FINAL_VIDEO_DURATION - 0.05) {
-    throw new Error(
-      `normalizeClipsTo30s: 실제 클립 총합이 ${totalDuration.toFixed(2)}초로 30초 미만입니다. 자연스러운 편집을 위해 30초 이상 클립이 필요합니다.`,
+    console.warn(
+      `normalizeClipsTo30s: 실제 클립 총합이 ${totalDuration.toFixed(2)}초로 30초 미만입니다. 프롬프트 품질 이슈로 보고 원본 길이 그대로 진행합니다.`,
     );
+    return clipPaths;
   }
 
   if (totalDuration <= MAX_FINAL_VIDEO_DURATION + 0.05) {
@@ -409,13 +413,16 @@ export async function concatClips(
       buildVerticalCoverFilter(),
       "-map",
       "0:v:0",
+      "-map",
+      "0:a:0?",
       "-c:v",
       "libx264",
       "-preset",
       "veryfast",
       "-crf",
       "23",
-      "-an",
+      "-c:a",
+      "aac",
       outputPath,
     ]);
     return;
@@ -439,21 +446,31 @@ export async function concatClips(
     filterParts.push(
       `[${i}:v]scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p,setpts=PTS-STARTPTS[v${i}]`,
     );
+    filterParts.push(
+      `[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[a${i}]`,
+    );
   }
 
   let accumulatedDuration = durations[0];
   let previousLabel = "[v0]";
+  let previousAudioLabel = "[a0]";
 
   for (let i = 1; i < clipPaths.length; i += 1) {
     const outputLabel = i === clipPaths.length - 1 ? "[vout]" : `[vx${i}]`;
+    const audioOutputLabel =
+      i === clipPaths.length - 1 ? "[aout]" : `[ax${i}]`;
     const offset = Math.max(0, accumulatedDuration - transition);
 
     filterParts.push(
       `${previousLabel}[v${i}]xfade=transition=fade:duration=${transition.toFixed(3)}:offset=${offset.toFixed(3)}${outputLabel}`,
     );
+    filterParts.push(
+      `${previousAudioLabel}[a${i}]acrossfade=d=${transition.toFixed(3)}:c1=tri:c2=tri${audioOutputLabel}`,
+    );
 
     accumulatedDuration += durations[i] - transition;
     previousLabel = outputLabel;
+    previousAudioLabel = audioOutputLabel;
   }
 
   await runCommand("ffmpeg", [
@@ -463,13 +480,16 @@ export async function concatClips(
     filterParts.join(";"),
     "-map",
     previousLabel,
+    "-map",
+    previousAudioLabel,
     "-c:v",
     "libx264",
     "-preset",
     "veryfast",
     "-crf",
     "23",
-    "-an",
+    "-c:a",
+    "aac",
     outputPath,
   ]);
 }
@@ -518,10 +538,12 @@ export async function muxVideoWithAudioAndSubtitles(
     ...(extraFilters.length > 0
       ? ["-vf", buildVerticalCoverFilter(extraFilters)]
       : []),
+    "-filter_complex",
+    `[0:a]volume=0.2[a0];[1:a]volume=1.0,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
     "-map",
     "0:v:0",
     "-map",
-    "1:a:0",
+    "[aout]",
     "-t",
     String(outputDuration),
     "-c:v",
@@ -530,8 +552,6 @@ export async function muxVideoWithAudioAndSubtitles(
     "veryfast",
     "-crf",
     "23",
-    "-af",
-    `apad,atrim=0:${outputDuration}`,
     "-c:a",
     "aac",
     outputPath,
