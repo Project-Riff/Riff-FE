@@ -228,7 +228,7 @@ export async function runRealPipeline(jobId: string) {
         "Gemini 전체 영상 업로드 및 분석 시작",
       );
 
-      analysis = await analyzeVideoWithGemini(job.sourcePath, job.storeInfo);
+      analysis = await analyzeVideoWithGemini(job.sourcePath, job.storeInfo, jobId);
       regeneratedAnalysis = true;
 
       assertAnalysis(analysis);

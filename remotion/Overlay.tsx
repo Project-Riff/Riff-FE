@@ -153,8 +153,7 @@ export const OverlayVideo: React.FC = () => {
   const currentSeconds = frame / fps;
   const activeInfoSubtitle =
     infoSubtitles.find(
-      (item) =>
-        currentSeconds >= item.start && currentSeconds < item.end,
+      (item) => currentSeconds >= item.start && currentSeconds < item.end,
     ) ?? null;
 
   if (!videoSrc) {
@@ -227,19 +226,37 @@ export const OverlayVideo: React.FC = () => {
             left: "50%",
             transform: "translate(-50%, -50%)",
             width: "78%",
-            fontFamily:
-              '"Pretendard Variable", "SUIT", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
-            color: "#fffdf8",
-            fontSize: 34,
-            lineHeight: 1.25,
-            fontWeight: 500,
-            textAlign: "center",
-            letterSpacing: "-0.02em",
-            textShadow: "0 1px 10px rgba(0,0,0,0.28)",
-            whiteSpace: "pre-wrap",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          {activeInfoSubtitle.text}
+          <div
+            style={{
+              maxWidth: "100%",
+              padding: "14px 20px",
+              borderRadius: 18,
+              background: "rgba(28, 20, 16, 0.38)",
+              boxShadow:
+                "0 16px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.12)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              fontFamily:
+                '"Pretendard Variable", "SUIT", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+              color: "#fffdf8",
+              fontSize: 40,
+              lineHeight: 1.25,
+              fontWeight: 500,
+              textAlign: "center",
+              letterSpacing: "-0.02em",
+              textShadow:
+                "0 2px 14px rgba(0,0,0,0.34), 0 1px 1px rgba(0,0,0,0.28)",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {activeInfoSubtitle.text}
+          </div>
         </div>
       ) : null}
     </AbsoluteFill>

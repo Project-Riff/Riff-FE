@@ -5,8 +5,11 @@ import { SubtitleItem } from "./types";
 
 const TARGET_AUDIO_DURATION = 29.5;
 // ElevenLabs 설정
-const ELEVENLABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
-const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // 기본 목소리 ID (필요시 변경 가능)
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const ELEVENLABS_VOICE_ID =
+  process.env.ELEVENLABS_VOICE_ID || "pNInz6obpgDQGcFmaJgB";
+const ELEVENLABS_MODEL_ID =
+  process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 const EDGE_VOICE = "ko-KR-SunHiNeural"; // Edge TTS 목소리
 
 function run(cmd: string, args: string[]) {
@@ -105,11 +108,13 @@ function buildAtempoFilter(speed: number) {
  */
 async function fetchElevenLabsAudio(text: string, outPath: string) {
   if (!ELEVENLABS_API_KEY) {
-    throw new Error("ELEVEN_LABS_API_KEY가 설정되지 않았습니다. .env 파일을 확인해주세요.");
+    throw new Error(
+      "ELEVENLABS_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인해주세요.",
+    );
   }
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: {
@@ -118,7 +123,7 @@ async function fetchElevenLabsAudio(text: string, outPath: string) {
       },
       body: JSON.stringify({
         text: text,
-        model_id: "eleven_multilingual_v2",
+        model_id: ELEVENLABS_MODEL_ID,
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.75,
@@ -191,6 +196,17 @@ async function fetchMacOsSayAudio(text: string, outPath: string) {
 }
 
 async function createBaseTtsMp3(text: string, outPath: string) {
+  if (ELEVENLABS_API_KEY) {
+    try {
+      await fetchElevenLabsAudio(text, outPath);
+      return;
+    } catch (error) {
+      console.warn(
+        `[TTS] ElevenLabs 호출 실패, fallback 경로로 전환합니다: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   try {
     await fetchEdgeTtsAudio(text, outPath);
   } catch (error) {
@@ -299,11 +315,8 @@ export async function makeTtsWav(text: string, outWavPath: string) {
     if (fs.existsSync(path)) fs.unlinkSync(path);
   });
 
-  // 1. Edge TTS 호출 (MP3 생성) - 토큰 절약을 위해 우선 사용
+  // 1. ElevenLabs 우선, 실패 시 Edge/macOS fallback
   await createBaseTtsMp3(text, mp3Path);
-
-  // 1-alt. ElevenLabs API 호출 (실서비스 전환 시 위 줄을 주석처리하고 아래를 해제하세요)
-  // await fetchElevenLabsAudio(text, mp3Path);
 
   // 2. MP3를 표준 WAV 포맷으로 변환
   await convertMp3ToWav(mp3Path, rawWavPath);

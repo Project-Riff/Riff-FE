@@ -8,6 +8,7 @@ import {
   StoreInfo,
   SubtitleItem,
 } from "./types";
+import { ensureJobDirs } from "./local-paths";
 
 type GeminiFileLike = {
   name?: string;
@@ -120,8 +121,9 @@ async function generateContentWithRetry(
 }
 
 const FINAL_SCRIPT_DURATION = 30;
-const EARLY_INFO_DURATION = 7;
-const TARGET_SUBTITLE_CHUNKS = 7;
+const EARLY_INFO_DURATION = 14;
+const MIN_SUBTITLE_CHUNKS = 5;
+const MAX_SUBTITLE_CHUNKS = 7;
 
 function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
   const filePath = path.join(process.cwd(), "src/prompts", promptFileName);
@@ -400,6 +402,65 @@ function dedupeCutRows(rows: ParsedCutRow[]) {
   return deduped;
 }
 
+function reorderCutRowsForStructure(rows: ParsedCutRow[]) {
+  if (rows.length === 0) {
+    return rows;
+  }
+
+  const remaining = [...rows];
+  const ordered: ParsedCutRow[] = [];
+
+  const takeFirst = (predicate: (row: ParsedCutRow) => boolean) => {
+    const index = remaining.findIndex(predicate);
+
+    if (index === -1) {
+      return null;
+    }
+
+    const [row] = remaining.splice(index, 1);
+    ordered.push(row);
+    return row;
+  };
+
+  // 도입부는 음식 훅 2개를 최우선으로 배치한다.
+  takeFirst((row) => row.shotType === "food_hook");
+  takeFirst((row) => row.shotType === "food_hook");
+
+  // 초반에는 위치/내부 컷을 1~2개만 짧게 배치한다.
+  if (!takeFirst((row) => row.shotType === "location")) {
+    takeFirst((row) => row.shotType === "interior");
+  }
+
+  if (ordered.length < 4) {
+    takeFirst(
+      (row) =>
+        row.shotType === "location" || row.shotType === "interior",
+    );
+  }
+
+  for (const row of remaining.filter((item) => item.shotType === "food_detail")) {
+    ordered.push(row);
+  }
+
+  for (const row of remaining.filter((item) => item.shotType === "food_hook")) {
+    ordered.push(row);
+  }
+
+  for (const row of remaining.filter((item) => item.shotType === "location")) {
+    ordered.push(row);
+  }
+
+  for (const row of remaining.filter((item) => item.shotType === "interior")) {
+    ordered.push(row);
+  }
+
+  for (const row of remaining.filter((item) => item.shotType === "ending")) {
+    ordered.push(row);
+  }
+
+  return ordered;
+}
+
 function validateCutDurations(segments: AnalysisSegment[]) {
   if (segments.length === 0) {
     return;
@@ -480,7 +541,8 @@ function parseCutsTable(text: string): AnalysisSegment[] {
   }
 
   const dedupedRows = dedupeCutRows(parsedRows);
-  const segments = dedupedRows.map(({ start, end, shotType, label }) => ({
+  const reorderedRows = reorderCutRowsForStructure(dedupedRows);
+  const segments = reorderedRows.map(({ start, end, shotType, label }) => ({
     start,
     end,
     shotType,
@@ -507,7 +569,7 @@ function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
   const normalized = texts
     .map((item) => cleanScript(item))
     .filter(Boolean)
-    .slice(0, TARGET_SUBTITLE_CHUNKS);
+    .slice(0, MAX_SUBTITLE_CHUNKS);
 
   const fallback = fallbackSource
     .map((item) => cleanScript(item))
@@ -516,18 +578,18 @@ function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
   let fallbackIndex = 0;
 
   while (
-    normalized.length < TARGET_SUBTITLE_CHUNKS &&
+    normalized.length < MIN_SUBTITLE_CHUNKS &&
     fallbackIndex < fallback.length
   ) {
     normalized.push(fallback[fallbackIndex]);
     fallbackIndex += 1;
   }
 
-  while (normalized.length < TARGET_SUBTITLE_CHUNKS) {
+  while (normalized.length < MIN_SUBTITLE_CHUNKS) {
     normalized.push(`매장 정보 ${normalized.length + 1}`);
   }
 
-  return normalized.slice(0, TARGET_SUBTITLE_CHUNKS);
+  return normalized.slice(0, MAX_SUBTITLE_CHUNKS);
 }
 
 function buildSubtitleItems(texts: string[]): SubtitleItem[] {
@@ -651,6 +713,7 @@ async function requestCutsWithGemini(
   ai: GoogleGenAI,
   videoPath: string,
   storeInfo?: StoreInfo,
+  jobId?: string,
 ) {
   const prompt = loadPrompt("shortform-cuts.txt", storeInfo);
   const uploaded = await uploadVideoAndWaitUntilActive(ai, videoPath);
@@ -677,9 +740,20 @@ async function requestCutsWithGemini(
     throw new Error("Gemini 컷 분석 응답이 비어 있습니다.");
   }
 
-  console.log("[Gemini cuts raw]\n", text);
+  console.log(
+    `[Gemini cuts raw${jobId ? ` job=${jobId}` : ""}]\n`,
+    text,
+  );
 
-  return parseCutsTable(text);
+  const segments = parseCutsTable(text);
+
+  if (jobId) {
+    const paths = ensureJobDirs(jobId);
+    fs.writeFileSync(paths.cutsRawPath, text, "utf-8");
+    fs.writeFileSync(paths.cutsParsedPath, JSON.stringify(segments, null, 2), "utf-8");
+  }
+
+  return segments;
 }
 
 function buildCutSummary(segments: AnalysisSegment[]) {
@@ -731,6 +805,7 @@ ${cutSummary}
 export async function analyzeVideoWithGemini(
   videoPath: string,
   storeInfo?: StoreInfo,
+  jobId?: string,
 ): Promise<AnalysisResult> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
@@ -744,7 +819,7 @@ export async function analyzeVideoWithGemini(
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-  const segments = await requestCutsWithGemini(ai, videoPath, storeInfo);
+  const segments = await requestCutsWithGemini(ai, videoPath, storeInfo, jobId);
   return requestScriptWithGemini(ai, segments, storeInfo);
 }
 
