@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 
 export default function HeroSection() {
   return (
-    <section className="overflow-hidden bg-white">
-      <div className="mx-auto max-w-[960px] px-6 py-12 md:py-16">
+    <section className="bg-white">
+      <div className="mx-auto max-w-[960px] px-6 py-16 md:py-24">
         <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
           {/* LEFT */}
           <motion.div
@@ -61,12 +61,12 @@ export default function HeroSection() {
             transition={{ duration: 0.55, delay: 0.06 }}
             className="w-full"
           >
-            <div className="grid gap-4 md:grid-cols-[1.08fr_0.92fr]">
+            <div className="grid items-start gap-4 md:grid-cols-[1.08fr_0.92fr]">
               {/* VIDEO */}
-              <div className="group relative mx-auto w-full max-w-[280px] overflow-hidden rounded-[20px] sm:max-w-[340px] md:max-w-none">
+              <div className="group relative mx-auto w-full max-w-[280px] overflow-hidden rounded-[24px] sm:max-w-[320px] md:max-w-none">
                 <video
-                  className="aspect-[4/5] md:aspect-[2/3] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                  src="/sample-1.mp4"
+                  className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                  src="/sample-2.mp4"
                   autoPlay
                   muted
                   loop
@@ -76,8 +76,8 @@ export default function HeroSection() {
                 <div className="absolute inset-0 bg-black/10" />
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
 
-                <div className="absolute bottom-0 p-4">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/70">
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/40 to-transparent">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/80">
                     Sample
                   </p>
 
@@ -93,12 +93,12 @@ export default function HeroSection() {
                 <motion.div
                   whileHover={{ y: -3 }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="group relative hidden overflow-hidden rounded-[16px] md:block"
+                  className="group relative hidden overflow-hidden rounded-[20px] md:block"
                 >
                   <img
                     src="/hero-wide.jpg"
                     alt="mood"
-                    className="aspect-[4/3.5] w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                    className="aspect-[10/11] w-full object-cover transition duration-700 group-hover:scale-[1.04]"
                   />
 
                   <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/10" />
@@ -111,12 +111,12 @@ export default function HeroSection() {
                   <motion.div
                     whileHover={{ y: -3 }}
                     transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="group relative overflow-hidden rounded-[14px]"
+                    className="group relative overflow-hidden rounded-[16px]"
                   >
                     <img
                       src="/hero-detail-1.jpg"
                       alt="food"
-                      className="aspect-[4/5] md:aspect-[3/6] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
+                      className="aspect-[1/2] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
                     />
 
                     <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/12" />
@@ -127,12 +127,12 @@ export default function HeroSection() {
                   <motion.div
                     whileHover={{ y: -3 }}
                     transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="group relative overflow-hidden rounded-[14px]"
+                    className="group relative overflow-hidden rounded-[16px]"
                   >
                     <img
                       src="/hero-detail-2.jpg"
                       alt="store"
-                      className="aspect-[4/5] md:aspect-[3/6] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
+                      className="aspect-[1/2] w-full object-cover object-bottom transition duration-700 group-hover:scale-[1.05]"
                     />
 
                     <div className="absolute inset-0 bg-black/0 transition duration-500 group-hover:bg-black/12" />

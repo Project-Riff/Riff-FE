@@ -539,7 +539,7 @@ export async function muxVideoWithAudioAndSubtitles(
       ? ["-vf", buildVerticalCoverFilter(extraFilters)]
       : []),
     "-filter_complex",
-    `[0:a]volume=0.2[a0];[1:a]volume=1.0,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
+    `[0:a]volume=0.5[a0];[1:a]volume=1.7,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
     "-map",
     "0:v:0",
     "-map",
