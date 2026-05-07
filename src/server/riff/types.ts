@@ -1,6 +1,7 @@
 export type Stage =
   | "queued"
   | "uploaded"
+  | "compressing"
   | "probing"
   | "analyzing"
   | "cutting"
@@ -77,6 +78,8 @@ export interface JobLog {
 
 export interface JobArtifacts {
   sourcePath?: string;
+  sourceOriginalPath?: string;
+  compressedPath?: string;
   sourceUrl?: string;
   analysisPath?: string;
   subtitlePath?: string;

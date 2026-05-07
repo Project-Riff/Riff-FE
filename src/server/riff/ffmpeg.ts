@@ -124,6 +124,36 @@ function ensureParentDir(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
+export async function compressVideoForAnalysis(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  ensureParentDir(outputPath);
+
+  await runCommand("ffmpeg", [
+    "-y",
+    "-i",
+    inputPath,
+    "-vf",
+    "scale='min(1080,iw)':-2",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "22",
+    "-maxrate",
+    "8M",
+    "-bufsize",
+    "16M",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "128k",
+    outputPath,
+  ]);
+}
+
 function escapeSubtitlePathForFfmpeg(filePath: string) {
   return filePath
     .replace(/\\/g, "/")
@@ -354,7 +384,11 @@ export async function normalizeClipsTo30s(
 
   if (lastClipDuration >= MAX_FINAL_VIDEO_DURATION - 0.05) {
     const outputPath = path.join(outputDir, `clip_norm_${lastIndex + 1}.mp4`);
-    await trimClipToDuration(lastClipPath, outputPath, MAX_FINAL_VIDEO_DURATION);
+    await trimClipToDuration(
+      lastClipPath,
+      outputPath,
+      MAX_FINAL_VIDEO_DURATION,
+    );
     return [outputPath];
   }
 
@@ -446,9 +480,7 @@ export async function concatClips(
     filterParts.push(
       `[${i}:v]scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p,setpts=PTS-STARTPTS[v${i}]`,
     );
-    filterParts.push(
-      `[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[a${i}]`,
-    );
+    filterParts.push(`[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[a${i}]`);
   }
 
   let accumulatedDuration = durations[0];
@@ -457,8 +489,7 @@ export async function concatClips(
 
   for (let i = 1; i < clipPaths.length; i += 1) {
     const outputLabel = i === clipPaths.length - 1 ? "[vout]" : `[vx${i}]`;
-    const audioOutputLabel =
-      i === clipPaths.length - 1 ? "[aout]" : `[ax${i}]`;
+    const audioOutputLabel = i === clipPaths.length - 1 ? "[aout]" : `[ax${i}]`;
     const offset = Math.max(0, accumulatedDuration - transition);
 
     filterParts.push(
@@ -539,7 +570,7 @@ export async function muxVideoWithAudioAndSubtitles(
       ? ["-vf", buildVerticalCoverFilter(extraFilters)]
       : []),
     "-filter_complex",
-    `[0:a]volume=0.2[a0];[1:a]volume=1.0,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
+    `[0:a]volume=0.5[a0];[1:a]volume=1.7,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
     "-map",
     "0:v:0",
     "-map",
