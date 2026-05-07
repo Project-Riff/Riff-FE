@@ -76,6 +76,8 @@ const STAGE_LABELS: Record<string, string> = {
   error: "오류",
 };
 
+const STREAM_UPLOAD_THRESHOLD_BYTES = 1024 * 1024 * 1024;
+
 function formatSec(sec: number) {
   return `${sec.toFixed(1)}s`;
 }
@@ -258,6 +260,7 @@ export default function ShortformEditor() {
   const [jobId, setJobId] = useState("");
   const [job, setJob] = useState<JobResponse | null>(null);
   const [error, setError] = useState("");
+  const [uploadNotice, setUploadNotice] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   const [storeInfo, setStoreInfo] = useState<StoreInfo>({
@@ -287,6 +290,14 @@ export default function ShortformEditor() {
     if (!file) return;
     setPickedFile(file);
     setError("");
+
+    if (file.size >= STREAM_UPLOAD_THRESHOLD_BYTES) {
+      setUploadNotice(
+        `대용량 영상(${(file.size / 1024 / 1024 / 1024).toFixed(2)}GB)입니다. 업로드 후 자동으로 압축을 진행합니다. 이 과정은 다소 시간이 걸릴 수 있습니다.`,
+      );
+    } else {
+      setUploadNotice("");
+    }
   };
 
   const stopPolling = () => {
@@ -412,21 +423,51 @@ export default function ShortformEditor() {
       setJobId("");
       stopPolling();
 
-      const formData = new FormData();
+      let uploadRes: Response;
 
-      if (pickedFile) formData.append("video", pickedFile);
-      if (analysisFile) formData.append("analysis", analysisFile);
-      if (subtitleFile) formData.append("subtitle", subtitleFile);
-      if (ttsFile) formData.append("tts", ttsFile);
-      if (bodyFile) formData.append("body", bodyFile);
+      const shouldUseRawVideoUpload =
+        resumeFrom === "full" &&
+        !!pickedFile &&
+        pickedFile.size >= STREAM_UPLOAD_THRESHOLD_BYTES &&
+        !analysisFile &&
+        !subtitleFile &&
+        !ttsFile &&
+        !bodyFile;
 
-      formData.append("resumeFrom", resumeFrom);
-      formData.append("storeInfo", JSON.stringify(storeInfo));
+      if (shouldUseRawVideoUpload && pickedFile) {
+        setUploadNotice(
+          `대용량 영상을 업로드 중입니다. 서버에 저장한 뒤 자동 압축을 시작합니다. 완료까지 잠시만 기다려주세요.`,
+        );
 
-      const uploadRes = await fetch("/api/local-upload", {
-        method: "POST",
-        body: formData,
-      });
+        uploadRes = await fetch("/api/local-upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": pickedFile.type || "application/octet-stream",
+            "x-raw-video-upload": "1",
+            "x-source-name": encodeURIComponent(pickedFile.name),
+            "x-resume-from": resumeFrom,
+            "x-store-info": encodeURIComponent(JSON.stringify(storeInfo)),
+            "x-file-size": String(pickedFile.size),
+          },
+          body: pickedFile,
+        });
+      } else {
+        const formData = new FormData();
+
+        if (pickedFile) formData.append("video", pickedFile);
+        if (analysisFile) formData.append("analysis", analysisFile);
+        if (subtitleFile) formData.append("subtitle", subtitleFile);
+        if (ttsFile) formData.append("tts", ttsFile);
+        if (bodyFile) formData.append("body", bodyFile);
+
+        formData.append("resumeFrom", resumeFrom);
+        formData.append("storeInfo", JSON.stringify(storeInfo));
+
+        uploadRes = await fetch("/api/local-upload", {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       const uploadData = await uploadRes.json().catch(() => ({}));
 
@@ -435,6 +476,14 @@ export default function ShortformEditor() {
       }
 
       setJobId(uploadData.jobId);
+
+      if (uploadData.compressed) {
+        setUploadNotice(
+          "대용량 원본을 감지해 서버에서 압축본을 생성했습니다. 현재 압축본 기준으로 분석을 이어갑니다.",
+        );
+      } else {
+        setUploadNotice("");
+      }
 
       const startRes = await fetch(`/api/jobs/${uploadData.jobId}/start`, {
         method: "POST",
@@ -596,6 +645,12 @@ export default function ShortformEditor() {
                   </strong>
                   <p className="mt-1 text-xs text-neutral-500">MP4 / MOV / WEBM</p>
                 </div>
+
+                {uploadNotice ? (
+                  <div className="rounded-2xl border border-[#ff6a1a]/15 bg-[#fff8f3] px-4 py-3 text-xs leading-5 text-[#b5541c]">
+                    {uploadNotice}
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <input
