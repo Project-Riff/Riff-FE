@@ -21,6 +21,8 @@ export function ensureJobDirs(jobId: string) {
     statusPath: path.join(jobRoot, "status.json"),
 
     sourcePath: path.join(jobRoot, "source.mp4"),
+    sourceOriginalPath: path.join(jobRoot, "source-original.mp4"),
+    compressedPath: path.join(jobRoot, "source-compressed.mp4"),
     cutsRawPath: path.join(jobRoot, "cuts-raw.txt"),
     cutsParsedPath: path.join(jobRoot, "cuts-parsed.json"),
     analysisPath: path.join(jobRoot, "analysis.json"),

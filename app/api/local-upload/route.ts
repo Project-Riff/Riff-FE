@@ -1,12 +1,118 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
+import { Readable } from "stream";
 import { ensureJobDirs } from "@/src/server/riff/local-paths";
 import { createJobId, now, sanitizeFilename } from "@/src/server/riff/utils";
 import { saveJob } from "@/src/server/riff/job-store";
 import { Job } from "@/src/server/riff/types";
+import { compressVideoForAnalysis } from "@/src/server/riff/ffmpeg";
+
+const COMPRESS_THRESHOLD_BYTES = 1024 * 1024 * 1024;
+
+function getUploadDebugMeta(request: Request) {
+  return {
+    method: request.method,
+    url: request.url,
+    contentType: request.headers.get("content-type"),
+    contentLength: request.headers.get("content-length"),
+    transferEncoding: request.headers.get("transfer-encoding"),
+    userAgent: request.headers.get("user-agent"),
+    now: new Date().toISOString(),
+  };
+}
 
 export async function POST(request: Request) {
+  const uploadDebugMeta = getUploadDebugMeta(request);
+
   try {
+    console.log("[local-upload] request meta", uploadDebugMeta);
+
+    const isRawVideoUpload = !!request.headers.get("x-raw-video-upload");
+
+    if (isRawVideoUpload) {
+      const sourceName = sanitizeFilename(
+        decodeURIComponent(request.headers.get("x-source-name") || "source.mp4"),
+      );
+      const resumeFrom = (request.headers.get("x-resume-from") || "full") as Job["resumeFrom"];
+      const rawStoreInfo = request.headers.get("x-store-info");
+      const declaredSize = Number(request.headers.get("x-file-size") || "0");
+
+      let storeInfo: Job["storeInfo"] | undefined;
+      if (rawStoreInfo?.trim()) {
+        storeInfo = JSON.parse(
+          decodeURIComponent(rawStoreInfo),
+        ) as Job["storeInfo"];
+      }
+
+      const jobId = createJobId();
+      const paths = ensureJobDirs(jobId);
+      const ext = sourceName.split(".").pop() || "mp4";
+      const originalPath = paths.sourceOriginalPath.replace(/\.mp4$/, `.${ext}`);
+
+      if (!request.body) {
+        return NextResponse.json(
+          { error: "업로드할 비디오 스트림이 없습니다." },
+          { status: 400 },
+        );
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const nodeStream = Readable.fromWeb(request.body as any);
+        const writer = fs.createWriteStream(originalPath);
+
+        nodeStream.on("error", reject);
+        writer.on("error", reject);
+        writer.on("finish", () => resolve());
+        nodeStream.pipe(writer);
+      });
+
+      let targetPath = originalPath;
+      let compressedPath: string | undefined;
+
+      if (declaredSize >= COMPRESS_THRESHOLD_BYTES) {
+        compressedPath = paths.compressedPath;
+        console.log(
+          `[local-upload] 대용량 파일 감지 ${(declaredSize / 1024 / 1024).toFixed(1)}MB -> 압축 시작`,
+        );
+        await compressVideoForAnalysis(originalPath, compressedPath);
+        targetPath = compressedPath;
+      }
+
+      const job: Job = {
+        id: jobId,
+        stage: "uploaded",
+        progress: 5,
+        message: compressedPath ? "업로드 및 압축 완료" : "업로드 완료",
+        createdAt: now(),
+        updatedAt: now(),
+        sourceName,
+        sourcePath: targetPath,
+        storeInfo,
+        resumeFrom,
+        artifacts: {
+          sourcePath: targetPath,
+          sourceOriginalPath: originalPath,
+          compressedPath,
+        },
+        logs: [
+          {
+            t: 0,
+            stage: compressedPath ? "compressing" : "uploaded",
+            progress: 5,
+            message: compressedPath ? "대용량 영상 압축 완료" : "업로드 완료",
+          },
+        ],
+      };
+
+      await saveJob(job);
+
+      return NextResponse.json({
+        jobId,
+        sourceName,
+        compressed: Boolean(compressedPath),
+      });
+    }
+
     const formData = await request.formData();
     const file = formData.get("video") as File | null;
     const analysisFile = formData.get("analysis") as File | null;
@@ -109,7 +215,18 @@ export async function POST(request: Request) {
       sourceName,
     });
   } catch (error) {
-    console.error(error);
+    console.error("[local-upload] upload failed", {
+      ...uploadDebugMeta,
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorMessage:
+        error instanceof Error ? error.message : "unknown upload error",
+      errorCause:
+        error instanceof Error && "cause" in error
+          ? String((error as Error & { cause?: unknown }).cause)
+          : undefined,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "upload error",
