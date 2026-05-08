@@ -78,7 +78,7 @@ export default function RequestSection() {
           desc="구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다."
         />
 
-        <div className="rounded-[20px] border border-[#f2f2f2] bg-white p-5 md:p-6">
+        <div className="rounded-[20px] border border-[#dcdcdc] bg-white p-5 md:p-6">
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
@@ -113,7 +113,7 @@ export default function RequestSection() {
             <div
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
-              className="relative rounded-[18px] border border-[#f2f2f2] bg-[#fcfcfc] p-4"
+              className="relative rounded-[18px] border border-[#dcdcdc] bg-[#fcfcfc] p-4"
             >
               {isHovered && (
                 <div className="pointer-events-none absolute right-4 top-[-30px] z-20 h-[110px] w-[110px]">
@@ -133,7 +133,7 @@ export default function RequestSection() {
                 {requestItems.map((item, index) => (
                   <div
                     key={item}
-                    className="flex items-center gap-3 rounded-[14px] border border-[#f2f2f2] bg-white px-3.5 py-2.5"
+                    className="flex items-center gap-3 rounded-[14px] border border-[#dcdcdc] bg-white px-3.5 py-2.5"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111] text-[10px] text-white">
                       {index + 1}
@@ -145,7 +145,7 @@ export default function RequestSection() {
                 ))}
               </div>
 
-              <div className="mt-4 rounded-[14px] border border-[#f2f2f2] bg-white px-3.5 py-2.5 text-[11px] leading-[1.7] text-[#777]">
+              <div className="mt-4 rounded-[14px] border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-[11px] leading-[1.7] text-[#777]">
                 사진과 짧은 영상 클립이 있으면 제작 방향을 더 빠르게 맞출 수
                 있습니다.
               </div>
