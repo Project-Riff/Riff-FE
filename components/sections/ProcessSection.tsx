@@ -52,7 +52,7 @@ export default function ProcessSection() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.06 }}
                 whileHover={{ y: -4 }}
-                className="group relative overflow-hidden rounded-[16px] border border-[#f2f2f2] bg-white p-4 transition-all duration-300 hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
+                className="group relative overflow-hidden rounded-[16px] border border-[#dcdcdc] bg-white p-4 transition-all duration-300 hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
               >
                 {/* 🔥 배경 이미지 */}
                 <div
@@ -66,7 +66,7 @@ export default function ProcessSection() {
                 {/* 상단 */}
                 <div className="relative z-10 flex items-center justify-between">
                   {/* 아이콘 (주황 포인트) */}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#f0f0f0] bg-[#fafafa] text-[#111] transition-all duration-300 group-hover:bg-orange-500 group-hover:text-white group-hover:scale-105">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#dcdcdc] bg-[#fafafa] text-[#111] transition-all duration-300 group-hover:bg-orange-500 group-hover:text-white group-hover:scale-105">
                     <Icon size={16} strokeWidth={1.8} />
                   </div>
 
@@ -91,8 +91,7 @@ export default function ProcessSection() {
                   </p>
                 </div>
 
-                {/* 하단 라인 */}
-                <div className="relative z-10 mt-4 h-px bg-[#f3f3f3] transition group-hover:bg-white/30" />
+
               </motion.div>
             );
           })}

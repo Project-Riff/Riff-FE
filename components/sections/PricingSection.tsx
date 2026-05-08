@@ -15,7 +15,7 @@ export default function PricingSection() {
           {pricingItems.map((item) => (
             <div
               key={item.name}
-              className="rounded-[16px] border border-[#f2f2f2] bg-white p-5"
+              className="rounded-[16px] border border-[#dcdcdc] bg-white p-5"
             >
               <p className="text-[11px] uppercase tracking-[0.16em] text-[#b0b0b0]">
                 {item.name}

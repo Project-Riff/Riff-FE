@@ -68,14 +68,14 @@ async function generateContentWithRetry(
     role: "user";
     parts: Array<
       | {
-          fileData: {
-            fileUri: string;
-            mimeType: string;
-          };
-        }
+        fileData: {
+          fileUri: string;
+          mimeType: string;
+        };
+      }
       | {
-          text: string;
-        }
+        text: string;
+      }
     >;
   }>,
 ) {
@@ -653,12 +653,12 @@ function parseScriptResult(
   ]);
   const subtitleChunks = splitSubtitleChunks(subtitleChunkRaw).length > 0
     ? normalizeSubtitleChunks(splitSubtitleChunks(subtitleChunkRaw), [
-        heroSubtitle ?? "",
-        narration,
-        storeInfo?.address ?? "",
-        storeInfo?.name ?? "",
-        storeInfo?.strengths ?? "",
-      ])
+      heroSubtitle ?? "",
+      narration,
+      storeInfo?.address ?? "",
+      storeInfo?.name ?? "",
+      storeInfo?.strengths ?? "",
+    ])
     : buildFallbackSubtitleChunks(narration, heroSubtitle);
   const subtitles = buildSubtitleItems(subtitleChunks);
 

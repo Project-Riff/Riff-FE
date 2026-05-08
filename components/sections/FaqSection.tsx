@@ -15,7 +15,7 @@ export default function FaqSection() {
           {faqs.map((item) => (
             <div
               key={item.q}
-              className="rounded-[16px] border border-[#f2f2f2] bg-white p-5"
+              className="rounded-[16px] border border-[#dcdcdc] bg-white p-5"
             >
               <h3 className="font-[var(--font-serif)] text-[18px] leading-[1.35] text-[#111]">
                 {item.q}
