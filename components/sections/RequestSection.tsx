@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Lottie from "lottie-react";
-import SectionTitle from "@/components/ui/SectionTitle";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import requestAnimation from "@/public/lottie/Social.json";
 
@@ -12,7 +11,6 @@ const requestItems = [
   "가게 이름 및 연락처",
   "대표 메뉴 또는 대표 상품",
   "영상 파일 업로드",
-  "BGM 사용 여부",
   "추가 요청사항",
 ];
 
@@ -72,13 +70,26 @@ export default function RequestSection() {
   return (
     <section id="request" className="scroll-mt-24 overflow-hidden bg-white">
       <div className="mx-auto max-w-[960px] px-6 py-12 md:py-16">
-        <SectionTitle
-          eyebrow="Request"
-          title={<><span className="text-[#ff7a2f]">제작 문의</span></>}
-          desc="구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다."
-        />
+        {/* 헤더 */}
+        <div className="mb-10">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
+            Request
+          </p>
 
-        <div className="rounded-[20px] border border-[#dcdcdc] bg-white p-5 md:p-6">
+          <div className="mt-3 flex items-end justify-between gap-8">
+            <h2 className="font-[var(--font-serif)] text-[28px] leading-[1.2] tracking-[-0.02em] text-[#111]">
+              <span className="text-[#ff7a2f]">제작 문의,</span>
+              <br />
+              간단하게 남겨주세요
+            </h2>
+
+            <p className="hidden max-w-[420px] text-[13px] leading-[1.7] text-[#777] md:block">
+              구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-[20px] border border-[#ededed] bg-[#fcfcfc] p-5 shadow-[0_12px_30px_rgba(0,0,0,0.03)] md:p-6">
           <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
@@ -113,11 +124,15 @@ export default function RequestSection() {
             <div
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
-              className="relative rounded-[18px] border border-[#dcdcdc] bg-[#fcfcfc] p-4"
+              className="relative rounded-[18px] border border-[#ededed] bg-white p-4 transition duration-300 hover:shadow-[0_12px_30px_rgba(0,0,0,0.04)]"
             >
               {isHovered && (
                 <div className="pointer-events-none absolute right-4 top-[-30px] z-20 h-[110px] w-[110px]">
-                  <Lottie animationData={requestAnimation} loop={false} autoplay />
+                  <Lottie
+                    animationData={requestAnimation}
+                    loop={false}
+                    autoplay
+                  />
                 </div>
               )}
 
@@ -133,11 +148,12 @@ export default function RequestSection() {
                 {requestItems.map((item, index) => (
                   <div
                     key={item}
-                    className="flex items-center gap-3 rounded-[14px] border border-[#dcdcdc] bg-white px-3.5 py-2.5"
+                    className="flex items-center gap-3 rounded-[14px] border border-[#ededed] bg-[#fcfcfc] px-3.5 py-2.5 transition duration-300 hover:bg-white"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111] text-[10px] text-white">
                       {index + 1}
                     </span>
+
                     <span className="text-[12px] leading-[1.6] text-[#666]">
                       {item}
                     </span>
@@ -145,7 +161,7 @@ export default function RequestSection() {
                 ))}
               </div>
 
-              <div className="mt-4 rounded-[14px] border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-[11px] leading-[1.7] text-[#777]">
+              <div className="mt-4 rounded-[14px] border border-[#ededed] bg-[#fcfcfc] px-3.5 py-2.5 text-[11px] leading-[1.7] text-[#777]">
                 사진과 짧은 영상 클립이 있으면 제작 방향을 더 빠르게 맞출 수
                 있습니다.
               </div>
