@@ -19,7 +19,6 @@ export default function ProcessSection() {
       className="scroll-mt-24 overflow-hidden bg-white px-6 py-16"
     >
       <div className="mx-auto max-w-[960px]">
-        {/* 헤더 */}
         <div className="mb-10">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
             Process
@@ -38,7 +37,6 @@ export default function ProcessSection() {
           </div>
         </div>
 
-        {/* 카드 */}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {processItems.map((item, index) => {
             const Icon = icons[index] ?? Send;
@@ -54,37 +52,33 @@ export default function ProcessSection() {
                 whileHover={{ y: -4 }}
                 className="group relative overflow-hidden rounded-[16px] border border-[#e9e9e9] bg-[#d7d7d7] p-4 transition-all duration-300 hover:bg-white hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
               >
-                {/* 기본 이미지 */}
                 <div
-  className="absolute inset-0 bg-cover bg-center opacity-[0.62] saturate-[0.95] brightness-[0.72] contrast-[0.95] transition-all duration-500 group-hover:scale-[1.01] group-hover:opacity-0"
-  style={{ backgroundImage: `url(${bgImage})` }}
-/>
+                  className="absolute inset-0 bg-cover bg-center opacity-[0.62] saturate-[0.95] brightness-[0.72] contrast-[0.95] transition-all duration-500 group-hover:scale-[1.01] group-hover:opacity-0"
+                  style={{ backgroundImage: `url(${bgImage})` }}
+                />
 
-<div className="absolute inset-0 bg-[#3f3f3f]/22 opacity-100 transition duration-500 group-hover:opacity-0" />
-                {/* 상단 */}
+                <div className="absolute inset-0 bg-[#3f3f3f]/22 opacity-100 transition duration-500 group-hover:opacity-0" />
+
                 <div className="relative z-10 flex items-center justify-between">
-                  {/* 아이콘 */}
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/35 bg-white/20 text-white backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-[#dcdcdc] group-hover:bg-[#fafafa] group-hover:text-[#111]">
                     <Icon size={16} strokeWidth={1.8} />
                   </div>
 
-                  {/* 숫자 */}
-                  <span className="text-[10px] tracking-[0.14em] text-white/80 transition group-hover:text-[#b6b6b6]">
+                  <span className="text-[10px] font-medium tracking-[0.14em] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)] transition group-hover:text-[#b6b6b6] group-hover:drop-shadow-none">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>
 
-                {/* 텍스트 */}
                 <div className="relative z-10 mt-4">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/80 transition group-hover:text-[#b0b0b0]">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)] transition group-hover:text-[#b0b0b0] group-hover:drop-shadow-none">
                     {item.step}
                   </p>
 
-                  <h3 className="mt-2 text-[16px] font-semibold leading-[1.35] text-white transition group-hover:text-[#111]">
+                  <h3 className="mt-2 text-[16px] font-semibold leading-[1.35] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] transition group-hover:text-[#111] group-hover:drop-shadow-none">
                     {item.title}
                   </h3>
 
-                  <p className="mt-2 text-[12px] leading-[1.7] text-white/95 transition group-hover:text-[#777]">
+                  <p className="mt-2 text-[12px] font-medium leading-[1.7] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.62)] transition group-hover:text-[#777] group-hover:drop-shadow-none">
                     {item.desc}
                   </p>
                 </div>
