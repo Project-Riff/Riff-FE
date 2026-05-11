@@ -41,37 +41,38 @@ export const sampleVideos = [
 
 export const pricingItems = [
   {
-    name: "Single",
-    price: "2만원",
-    originalPrice: "3만원",
+    name: "Basic",
+    price: "19,000원",
+    originalPrice: "50,000원",
     features: [
-      "30초 내외 영상 1개",
+      "30초 내외 쇼츠 1개",
       "자막 삽입",
       "빠른 납품",
-      "론칭 기념 한달간 할인",
+      "론칭 기념 특가",
     ],
   },
   {
-    name: "Starter",
-    price: "5만원",
+    name: "Standard",
+    price: "70,000원",
     features: [
-      "영상 2개",
+      "쇼츠 영상 2개",
       "자막 스타일 커스텀",
       "간단한 나레이션 구성",
       "대표 메뉴 강조",
     ],
   },
   {
-    name: "Pro",
-    price: "10만원",
+    name: "Premium",
+    price: "100,000원",
     features: [
-      "영상 3개",
+      "쇼츠 영상 3개",
       "브랜딩 문구 적용",
       "쇼츠 템플릿 맞춤 제작",
       "업로드 문구 초안 제공",
     ],
   },
 ];
+
 export const faqs = [
   {
     q: "직접 촬영을 잘 못해도 되나요?",
