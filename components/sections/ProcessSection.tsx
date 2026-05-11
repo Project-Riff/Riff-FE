@@ -52,46 +52,42 @@ export default function ProcessSection() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.06 }}
                 whileHover={{ y: -4 }}
-                className="group relative overflow-hidden rounded-[16px] border border-[#dcdcdc] bg-white p-4 transition-all duration-300 hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
+                className="group relative overflow-hidden rounded-[16px] border border-[#e9e9e9] bg-[#d7d7d7] p-4 transition-all duration-300 hover:bg-white hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
               >
-                {/* 🔥 배경 이미지 */}
+                {/* 기본 이미지 */}
                 <div
-                  className="absolute inset-0 bg-cover bg-center opacity-0 transition-all duration-500 group-hover:opacity-[0.28] group-hover:scale-[1.03]"
-                  style={{ backgroundImage: `url(${bgImage})` }}
-                />
+  className="absolute inset-0 bg-cover bg-center opacity-[0.62] saturate-[0.95] brightness-[0.72] contrast-[0.95] transition-all duration-500 group-hover:scale-[1.01] group-hover:opacity-0"
+  style={{ backgroundImage: `url(${bgImage})` }}
+/>
 
-                {/* 🔥 어두운 오버레이 */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 transition duration-500 group-hover:opacity-100" />
-
+<div className="absolute inset-0 bg-[#3f3f3f]/22 opacity-100 transition duration-500 group-hover:opacity-0" />
                 {/* 상단 */}
                 <div className="relative z-10 flex items-center justify-between">
-                  {/* 아이콘 (주황 포인트) */}
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#dcdcdc] bg-[#fafafa] text-[#111] transition-all duration-300 group-hover:bg-orange-500 group-hover:text-white group-hover:scale-105">
+                  {/* 아이콘 */}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/35 bg-white/20 text-white backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-[#dcdcdc] group-hover:bg-[#fafafa] group-hover:text-[#111]">
                     <Icon size={16} strokeWidth={1.8} />
                   </div>
 
                   {/* 숫자 */}
-                  <span className="text-[10px] tracking-[0.14em] text-[#b6b6b6] transition group-hover:text-white/80">
+                  <span className="text-[10px] tracking-[0.14em] text-white/80 transition group-hover:text-[#b6b6b6]">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>
 
                 {/* 텍스트 */}
                 <div className="relative z-10 mt-4">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#b0b0b0] transition group-hover:text-white/80">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/80 transition group-hover:text-[#b0b0b0]">
                     {item.step}
                   </p>
 
-                  <h3 className="mt-2 text-[16px] font-semibold leading-[1.35] text-[#111] transition group-hover:text-white group-hover:drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  <h3 className="mt-2 text-[16px] font-semibold leading-[1.35] text-white transition group-hover:text-[#111]">
                     {item.title}
                   </h3>
 
-                  <p className="mt-2 text-[12px] leading-[1.7] text-[#777] transition group-hover:text-white/90">
+                  <p className="mt-2 text-[12px] leading-[1.7] text-white/95 transition group-hover:text-[#777]">
                     {item.desc}
                   </p>
                 </div>
-
-
               </motion.div>
             );
           })}
