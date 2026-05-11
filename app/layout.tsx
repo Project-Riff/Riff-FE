@@ -28,6 +28,8 @@ export const metadata: Metadata = {
   description: "사진과 영상만 보내면 AI로 빠르게 홍보 영상을 제작해드립니다.",
 };
 
+import { GoogleAnalytics } from "@next/third-parties/google";
+
 export default function RootLayout({
   children,
 }: {
@@ -42,6 +44,7 @@ export default function RootLayout({
         <Header />
         {children}
       </body>
+      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || ""} />
     </html>
   );
 }

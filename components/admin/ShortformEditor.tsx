@@ -7,9 +7,6 @@ type StoreInfo = {
   address: string;
   subtitle: string;
   strengths: string;
-  hours: string;
-  phone: string;
-  instagram: string;
 };
 
 type SubtitleItem = {
@@ -268,9 +265,6 @@ export default function ShortformEditor() {
     address: "",
     subtitle: "",
     strengths: "",
-    hours: "",
-    phone: "",
-    instagram: "",
   });
 
   const progress = job?.progress ?? 0;
@@ -742,22 +736,10 @@ export default function ShortformEditor() {
                   placeholder="예: 하류식당"
                 />
                 <Field
-                  label="인스타그램"
-                  value={storeInfo.instagram}
-                  onChange={(value) => updateStoreField("instagram", value)}
-                  placeholder="예: @haru_kitchen"
-                />
-                <Field
                   label="주소"
                   value={storeInfo.address}
                   onChange={(value) => updateStoreField("address", value)}
                   placeholder="예: 수원시 ..."
-                />
-                <Field
-                  label="전화번호"
-                  value={storeInfo.phone}
-                  onChange={(value) => updateStoreField("phone", value)}
-                  placeholder="예: 010-1234-5678"
                 />
                 <Field
                   label="부제"
@@ -771,14 +753,6 @@ export default function ShortformEditor() {
                   onChange={(value) => updateStoreField("strengths", value)}
                   placeholder="예: 로봇 바리스타, 넓은 좌석, 야간 방문"
                 />
-                <div className="md:col-span-2">
-                  <Field
-                    label="영업시간"
-                    value={storeInfo.hours}
-                    onChange={(value) => updateStoreField("hours", value)}
-                    placeholder="예: 11:00 - 22:00"
-                  />
-                </div>
               </div>
             </SectionCard>
 
