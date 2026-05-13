@@ -120,8 +120,8 @@ async function generateContentWithRetry(
     : new Error("Gemini generateContent 재시도 실패");
 }
 
-const FINAL_SCRIPT_DURATION = 30;
-const EARLY_INFO_DURATION = 14;
+const FINAL_SCRIPT_DURATION = 20;
+const EARLY_INFO_DURATION = 9;
 const MIN_SUBTITLE_CHUNKS = 5;
 const MAX_SUBTITLE_CHUNKS = 7;
 

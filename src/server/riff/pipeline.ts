@@ -354,7 +354,7 @@ export async function runRealPipeline(jobId: string) {
 
         clipPaths = await normalizeClipsTo30s(rawClipPaths, paths.clipsDir);
 
-        console.log("[Pipeline] 30초 기준 clip 정규화 완료", clipPaths);
+        console.log("[Pipeline] 20초 기준 clip 정규화 완료", clipPaths);
       }
     }
 
@@ -407,7 +407,7 @@ export async function runRealPipeline(jobId: string) {
     await patchJob(jobId, {
       stage: "rendering",
       progress: 90,
-      message: "30초 영상 합성 중",
+      message: "20초 영상 합성 중",
       analysis,
       artifacts: {
         analysisPath: paths.analysisPath,
@@ -418,7 +418,7 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "rendering", 90, "30초 영상 합성 중");
+    await pushJobLog(jobId, "rendering", 90, "20초 영상 합성 중");
 
     if (!shouldSkipBody(resumeFrom) || !fs.existsSync(paths.bodyPath)) {
       await concatClips(clipPaths, paths.bodyPath);
@@ -466,9 +466,7 @@ export async function runRealPipeline(jobId: string) {
         heroTitle: overlayTitle,
         heroSubtitle: overlaySubtitle,
         infoSubtitles: analysis.subtitles,
-        durationInFrames: Math.ceil(
-          Math.min(bodyMeta.duration, MAX_FINAL_VIDEO_DURATION) * 60,
-        ),
+        durationInFrames: Math.ceil(bodyMeta.duration * 60),
       },
       paths.overlayPath,
     );

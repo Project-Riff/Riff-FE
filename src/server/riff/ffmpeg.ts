@@ -9,12 +9,12 @@ type ProbeResult = {
   height?: number;
 };
 
-export const FINAL_VIDEO_DURATION = 30;
-export const MAX_FINAL_VIDEO_DURATION = 33;
+export const FINAL_VIDEO_DURATION = 20;
+export const MAX_FINAL_VIDEO_DURATION = 22;
 export const TARGET_WIDTH = 1080;
 export const TARGET_HEIGHT = 1920;
 const SUBTITLE_TOP_RATIO = 0.65;
-const TRANSITION_DURATION = 0.15;
+const CLIP_EDGE_TRIM = 0.05;
 
 function buildSubtitleFilter(subtitlePath: string) {
   const escapedSubtitlePath = escapeSubtitlePathForFfmpeg(subtitlePath);
@@ -352,80 +352,7 @@ export async function normalizeClipsTo30s(
   }
 
   fs.mkdirSync(outputDir, { recursive: true });
-
-  const durations = await Promise.all(
-    clipPaths.map(async (clipPath) => {
-      const meta = await probeVideo(clipPath);
-      return meta.duration;
-    }),
-  );
-
-  const totalDuration = durations.reduce((sum, duration) => sum + duration, 0);
-
-  if (!Number.isFinite(totalDuration) || totalDuration <= 0) {
-    throw new Error("normalizeClipsTo30s: 전체 clip 길이 계산 실패");
-  }
-
-  if (totalDuration < FINAL_VIDEO_DURATION - 0.05) {
-    console.warn(
-      `normalizeClipsTo30s: 실제 클립 총합이 ${totalDuration.toFixed(2)}초로 30초 미만입니다. 프롬프트 품질 이슈로 보고 원본 길이 그대로 진행합니다.`,
-    );
-    return clipPaths;
-  }
-
-  if (totalDuration <= MAX_FINAL_VIDEO_DURATION + 0.05) {
-    return clipPaths;
-  }
-
-  const normalized: string[] = [];
-  const lastIndex = clipPaths.length - 1;
-  const lastClipPath = clipPaths[lastIndex];
-  const lastClipDuration = durations[lastIndex];
-
-  if (lastClipDuration >= MAX_FINAL_VIDEO_DURATION - 0.05) {
-    const outputPath = path.join(outputDir, `clip_norm_${lastIndex + 1}.mp4`);
-    await trimClipToDuration(
-      lastClipPath,
-      outputPath,
-      MAX_FINAL_VIDEO_DURATION,
-    );
-    return [outputPath];
-  }
-
-  const targetDurationBeforeLast = Math.max(
-    0.1,
-    MAX_FINAL_VIDEO_DURATION - lastClipDuration,
-  );
-  let usedDurationBeforeLast = 0;
-
-  for (let i = 0; i < clipPaths.length; i += 1) {
-    const inputPath = clipPaths[i];
-    const clipDuration = durations[i];
-
-    if (i === lastIndex) {
-      normalized.push(inputPath);
-      break;
-    }
-
-    if (usedDurationBeforeLast >= targetDurationBeforeLast) {
-      continue;
-    }
-
-    const remainingDuration = targetDurationBeforeLast - usedDurationBeforeLast;
-
-    if (clipDuration <= remainingDuration + 0.05) {
-      normalized.push(inputPath);
-      usedDurationBeforeLast += clipDuration;
-      continue;
-    }
-
-    const outputPath = path.join(outputDir, `clip_norm_${i + 1}.mp4`);
-    await trimClipToDuration(inputPath, outputPath, remainingDuration);
-    normalized.push(outputPath);
-    usedDurationBeforeLast += remainingDuration;
-  }
-
-  return normalized;
+  return clipPaths;
 }
 
 export async function concatClips(
@@ -469,40 +396,28 @@ export async function concatClips(
     }),
   );
 
-  const transition = Math.min(
-    TRANSITION_DURATION,
-    ...durations.map((duration) => Math.max(0.05, duration / 4)),
-  );
   const inputArgs = clipPaths.flatMap((clipPath) => ["-i", clipPath]);
   const filterParts: string[] = [];
 
   for (let i = 0; i < clipPaths.length; i += 1) {
+    const duration = durations[i];
+    const startTrim = i === 0 ? 0 : Math.min(CLIP_EDGE_TRIM, duration / 8);
+    const endTrim =
+      i === clipPaths.length - 1 ? 0 : Math.min(CLIP_EDGE_TRIM, duration / 8);
+    const trimmedEnd = Math.max(startTrim + 0.1, duration - endTrim);
+
     filterParts.push(
-      `[${i}:v]scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p,setpts=PTS-STARTPTS[v${i}]`,
+      `[${i}:v]trim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},setpts=PTS-STARTPTS,scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p[v${i}]`,
     );
-    filterParts.push(`[${i}:a]aresample=48000,asetpts=PTS-STARTPTS[a${i}]`);
+    filterParts.push(
+      `[${i}:a]atrim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},asetpts=PTS-STARTPTS,aresample=48000[a${i}]`,
+    );
   }
 
-  let accumulatedDuration = durations[0];
-  let previousLabel = "[v0]";
-  let previousAudioLabel = "[a0]";
-
-  for (let i = 1; i < clipPaths.length; i += 1) {
-    const outputLabel = i === clipPaths.length - 1 ? "[vout]" : `[vx${i}]`;
-    const audioOutputLabel = i === clipPaths.length - 1 ? "[aout]" : `[ax${i}]`;
-    const offset = Math.max(0, accumulatedDuration - transition);
-
-    filterParts.push(
-      `${previousLabel}[v${i}]xfade=transition=fade:duration=${transition.toFixed(3)}:offset=${offset.toFixed(3)}${outputLabel}`,
-    );
-    filterParts.push(
-      `${previousAudioLabel}[a${i}]acrossfade=d=${transition.toFixed(3)}:c1=tri:c2=tri${audioOutputLabel}`,
-    );
-
-    accumulatedDuration += durations[i] - transition;
-    previousLabel = outputLabel;
-    previousAudioLabel = audioOutputLabel;
-  }
+  const concatInputs = clipPaths.map((_, i) => `[v${i}][a${i}]`).join("");
+  filterParts.push(
+    `${concatInputs}concat=n=${clipPaths.length}:v=1:a=1[vout][aout]`,
+  );
 
   await runCommand("ffmpeg", [
     "-y",
@@ -510,9 +425,9 @@ export async function concatClips(
     "-filter_complex",
     filterParts.join(";"),
     "-map",
-    previousLabel,
+    "[vout]",
     "-map",
-    previousAudioLabel,
+    "[aout]",
     "-c:v",
     "libx264",
     "-preset",
@@ -541,7 +456,7 @@ export async function muxVideoWithAudioAndSubtitles(
 
   ensureParentDir(outputPath);
   const videoMeta = await probeVideo(videoPath);
-  const outputDuration = Math.min(videoMeta.duration, MAX_FINAL_VIDEO_DURATION);
+  const outputDuration = videoMeta.duration;
   const extraFilters: string[] = [];
 
   if (subtitlePath) {
