@@ -343,12 +343,12 @@ export async function trimClipToDuration(
   ]);
 }
 
-export async function normalizeClipsTo30s(
+export async function normalizeClipsForTimeline(
   clipPaths: string[],
   outputDir: string,
 ): Promise<string[]> {
   if (clipPaths.length === 0) {
-    throw new Error("normalizeClipsTo30s: clipPaths가 비어 있습니다.");
+    throw new Error("normalizeClipsForTimeline: clipPaths가 비어 있습니다.");
   }
 
   fs.mkdirSync(outputDir, { recursive: true });

@@ -4,10 +4,9 @@ import { ensureJobDirs } from "./local-paths";
 import {
   probeVideo,
   cutSegments,
-  normalizeClipsTo30s,
+  normalizeClipsForTimeline,
   concatClips,
   muxVideoWithAudioAndSubtitles,
-  MAX_FINAL_VIDEO_DURATION,
 } from "./ffmpeg";
 import {
   analyzeVideoWithGemini,
@@ -352,7 +351,7 @@ export async function runRealPipeline(jobId: string) {
 
         console.log("[Pipeline] raw clip 생성 완료", rawClipPaths);
 
-        clipPaths = await normalizeClipsTo30s(rawClipPaths, paths.clipsDir);
+        clipPaths = await normalizeClipsForTimeline(rawClipPaths, paths.clipsDir);
 
         console.log("[Pipeline] 20초 기준 clip 정규화 완료", clipPaths);
       }
@@ -432,9 +431,7 @@ export async function runRealPipeline(jobId: string) {
 
     fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
 
-    console.log(
-      `[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s / allowed max=${MAX_FINAL_VIDEO_DURATION}s`,
-    );
+    console.log(`[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s`);
 
     await patchJob(jobId, {
       stage: "rendering",
