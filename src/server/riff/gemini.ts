@@ -362,6 +362,21 @@ type ParsedCutRow = {
   label: string;
 };
 
+type CandidateSelectionLog = {
+  start: number;
+  end: number;
+  shotType: AnalysisShotType;
+  label: string;
+  reason: string;
+};
+
+type CutSelectionResult = {
+  candidates: ParsedCutRow[];
+  selected: ParsedCutRow[];
+  removed: CandidateSelectionLog[];
+  selectionMode: "normal" | "fallback";
+};
+
 const ALLOWED_SHOT_TYPES: AnalysisShotType[] = [
   "food_hook",
   "location",
@@ -375,9 +390,154 @@ function parseShotType(value: string): AnalysisShotType | null {
   return ALLOWED_SHOT_TYPES.find((type) => type === normalized) ?? null;
 }
 
+function extractKeywords(label: string) {
+  return cleanScript(label)
+    .toLowerCase()
+    .split(/[^a-z0-9가-힣]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+}
+
+function getKeywordOverlapScore(a: string, b: string) {
+  const aTokens = new Set(extractKeywords(a));
+  const bTokens = new Set(extractKeywords(b));
+
+  if (aTokens.size === 0 || bTokens.size === 0) {
+    return 0;
+  }
+
+  let overlap = 0;
+
+  for (const token of aTokens) {
+    if (bTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+
+  return overlap / Math.max(aTokens.size, bTokens.size);
+}
+
+function getOverlapRatio(a: ParsedCutRow, b: ParsedCutRow) {
+  const overlap = Math.min(a.end, b.end) - Math.max(a.start, b.start);
+
+  if (overlap <= 0) {
+    return 0;
+  }
+
+  const shorter = Math.min(a.end - a.start, b.end - b.start);
+  return shorter > 0 ? overlap / shorter : 0;
+}
+
+function scoreCutCandidate(row: ParsedCutRow) {
+  const duration = row.end - row.start;
+
+  if (row.shotType === "food_hook") {
+    return -Math.abs(duration - 2.3);
+  }
+
+  if (row.shotType === "ending") {
+    return -Math.abs(duration - 2.8) + 0.1;
+  }
+
+  return -Math.abs(duration - 2.9);
+}
+
+function getDiversityAdjustment(
+  candidate: ParsedCutRow,
+  selected: ParsedCutRow[],
+) {
+  if (selected.length === 0) {
+    return 0;
+  }
+
+  let adjustment = 0;
+  const recent = selected.slice(-2);
+  const hasSameType = selected.some((picked) => picked.shotType === candidate.shotType);
+  const maxKeywordOverlap = Math.max(
+    ...selected.map((picked) => getKeywordOverlapScore(candidate.label, picked.label)),
+  );
+
+  if (!hasSameType) {
+    adjustment += 0.28;
+  }
+
+  if (candidate.shotType === "food_detail") {
+    if (maxKeywordOverlap < 0.25) {
+      adjustment += 0.22;
+    }
+
+    if (
+      recent.some(
+        (picked) =>
+          picked.shotType === "food_detail" &&
+          getKeywordOverlapScore(candidate.label, picked.label) >= 0.4,
+      )
+    ) {
+      adjustment -= 0.35;
+    }
+  }
+
+  if (recent.some((picked) => picked.shotType === candidate.shotType)) {
+    adjustment -= 0.15;
+  }
+
+  if (maxKeywordOverlap >= 0.5) {
+    adjustment -= 0.4;
+  } else if (maxKeywordOverlap >= 0.35) {
+    adjustment -= 0.2;
+  }
+
+  return adjustment;
+}
+
+function validateCandidateRows(
+  rows: ParsedCutRow[],
+  videoDuration?: number,
+) {
+  const valid: ParsedCutRow[] = [];
+  const removed: CandidateSelectionLog[] = [];
+
+  for (const row of rows) {
+    const duration = row.end - row.start;
+
+    if (row.start < 0) {
+      removed.push({ ...row, reason: "start<0" });
+      continue;
+    }
+
+    if (!Number.isFinite(row.start) || !Number.isFinite(row.end) || row.end <= row.start) {
+      removed.push({ ...row, reason: "invalid_range" });
+      continue;
+    }
+
+    if (videoDuration && row.end > videoDuration + 0.01) {
+      removed.push({ ...row, reason: "end>videoDuration" });
+      continue;
+    }
+
+    if (duration < 1.8) {
+      removed.push({ ...row, reason: "too_short" });
+      continue;
+    }
+
+    if (duration > 5) {
+      removed.push({ ...row, reason: "too_long" });
+      continue;
+    }
+
+    valid.push(row);
+  }
+
+  return {
+    valid,
+    removed,
+  };
+}
+
 function dedupeCutRows(rows: ParsedCutRow[]) {
   const sorted = [...rows].sort((a, b) => a.start - b.start);
   const deduped: ParsedCutRow[] = [];
+  const removed: CandidateSelectionLog[] = [];
 
   for (const row of sorted) {
     const previous = deduped[deduped.length - 1];
@@ -391,15 +551,25 @@ function dedupeCutRows(rows: ParsedCutRow[]) {
     const almostSameWindow =
       Math.abs(previous.start - row.start) < 1.5 &&
       Math.abs(previous.end - row.end) < 1.5;
+    const similarLabel =
+      previous.shotType === row.shotType &&
+      getKeywordOverlapScore(previous.label, row.label) >= 0.6;
 
-    if (overlap >= 0.75 || almostSameWindow) {
+    if (overlap >= 0.75 || almostSameWindow || similarLabel) {
+      removed.push({
+        ...row,
+        reason: overlap >= 0.75 || almostSameWindow ? "duplicate_window" : "duplicate_label",
+      });
       continue;
     }
 
     deduped.push(row);
   }
 
-  return deduped;
+  return {
+    deduped,
+    removed,
+  };
 }
 
 function reorderCutRowsForStructure(rows: ParsedCutRow[]) {
@@ -461,6 +631,158 @@ function reorderCutRowsForStructure(rows: ParsedCutRow[]) {
   return ordered;
 }
 
+function pickBestCandidates(
+  rows: ParsedCutRow[],
+  minCount = 6,
+  maxCount = 8,
+) {
+  const selected: ParsedCutRow[] = [];
+  const remaining = [...rows];
+
+  const takeBest = (
+    predicate: (row: ParsedCutRow) => boolean,
+    reason: string,
+  ) => {
+    let bestIndex = -1;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    remaining.forEach((row, index) => {
+      if (!predicate(row)) {
+        return;
+      }
+
+      const totalScore =
+        scoreCutCandidate(row) + getDiversityAdjustment(row, selected);
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestIndex = index;
+      }
+    });
+
+    if (bestIndex === -1) {
+      return null;
+    }
+
+    const [row] = remaining.splice(bestIndex, 1);
+    selected.push(row);
+    return row;
+  };
+
+  const isDistinctEnough = (candidate: ParsedCutRow) => {
+    return selected.every((picked) => {
+      if (getOverlapRatio(candidate, picked) >= 0.45) {
+        return false;
+      }
+
+      if (
+        candidate.shotType === picked.shotType &&
+        getKeywordOverlapScore(candidate.label, picked.label) >= 0.7
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
+  takeBest((row) => row.shotType === "food_hook", "selected_intro_1");
+  takeBest(
+    (row) =>
+      (row.shotType === "food_hook" || row.shotType === "food_detail") &&
+      isDistinctEnough(row),
+    "selected_intro_2",
+  );
+  takeBest(
+    (row) =>
+      (row.shotType === "location" || row.shotType === "interior") &&
+      isDistinctEnough(row),
+    "selected_space_info",
+  );
+  takeBest((row) => row.shotType === "ending" && isDistinctEnough(row), "selected_ending");
+
+  const preferredFillOrder: AnalysisShotType[] = [
+    "food_detail",
+    "interior",
+    "location",
+    "food_hook",
+    "ending",
+  ];
+
+  for (const shotType of preferredFillOrder) {
+    while (selected.length < maxCount) {
+      let bestIndex = -1;
+      let bestScore = Number.NEGATIVE_INFINITY;
+
+      remaining.forEach((row, index) => {
+        if (row.shotType !== shotType || !isDistinctEnough(row)) {
+          return;
+        }
+
+        const totalScore =
+          scoreCutCandidate(row) + getDiversityAdjustment(row, selected);
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestIndex = index;
+        }
+      });
+
+      if (bestIndex === -1) {
+        break;
+      }
+
+      const [row] = remaining.splice(bestIndex, 1);
+      selected.push(row);
+    }
+  }
+
+  if (selected.length < minCount) {
+    for (const row of remaining) {
+      if (selected.length >= minCount) {
+        break;
+      }
+
+      selected.push(row);
+    }
+  }
+
+  return {
+    selected,
+    selectionMode: selected.length >= minCount ? "normal" : "fallback",
+  } as const;
+}
+
+function buildCutSelectionResult(
+  rows: ParsedCutRow[],
+  videoDuration?: number,
+): CutSelectionResult {
+  const validation = validateCandidateRows(rows, videoDuration);
+  const dedupe = dedupeCutRows(validation.valid);
+  const picked = pickBestCandidates(dedupe.deduped);
+  const reordered = reorderCutRowsForStructure(picked.selected);
+  const reorderedSet = new Set(
+    reordered.map((row) => `${row.start}-${row.end}-${row.shotType}-${row.label}`),
+  );
+
+  const unselected = dedupe.deduped
+    .filter(
+      (row) =>
+        !reorderedSet.has(`${row.start}-${row.end}-${row.shotType}-${row.label}`),
+    )
+    .map((row) => ({
+      ...row,
+      reason: "not_selected",
+    }));
+
+  return {
+    candidates: dedupe.deduped,
+    selected: reordered,
+    removed: [...validation.removed, ...dedupe.removed, ...unselected],
+    selectionMode: picked.selectionMode,
+  };
+}
+
 function validateCutDurations(segments: AnalysisSegment[]) {
   if (segments.length === 0) {
     return;
@@ -494,7 +816,7 @@ function validateCutDurations(segments: AnalysisSegment[]) {
   }
 }
 
-function parseCutsTable(text: string): AnalysisSegment[] {
+function parseCutsTable(text: string, videoDuration?: number): CutSelectionResult {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
@@ -540,9 +862,8 @@ function parseCutsTable(text: string): AnalysisSegment[] {
     }
   }
 
-  const dedupedRows = dedupeCutRows(parsedRows);
-  const reorderedRows = reorderCutRowsForStructure(dedupedRows);
-  const segments = reorderedRows.map(({ start, end, shotType, label }) => ({
+  const selection = buildCutSelectionResult(parsedRows, videoDuration);
+  const segments = selection.selected.map(({ start, end, shotType, label }) => ({
     start,
     end,
     shotType,
@@ -555,7 +876,7 @@ function parseCutsTable(text: string): AnalysisSegment[] {
 
   validateCutDurations(segments);
 
-  return segments;
+  return selection;
 }
 
 function splitSubtitleChunks(value: string) {
@@ -714,6 +1035,7 @@ async function requestCutsWithGemini(
   videoPath: string,
   storeInfo?: StoreInfo,
   jobId?: string,
+  videoDuration?: number,
 ) {
   const prompt = loadPrompt("shortform-cuts.txt", storeInfo);
   const uploaded = await uploadVideoAndWaitUntilActive(ai, videoPath);
@@ -745,12 +1067,35 @@ async function requestCutsWithGemini(
     text,
   );
 
-  const segments = parseCutsTable(text);
+  const selection = parseCutsTable(text, videoDuration);
+  const segments = selection.selected.map(({ start, end, shotType, label }) => ({
+    start,
+    end,
+    shotType,
+    label,
+  }));
+
+  console.log(
+    `[Gemini] 후보 컷 ${selection.candidates.length}개 / 최종 선택 ${segments.length}개 / mode=${selection.selectionMode}`,
+  );
 
   if (jobId) {
     const paths = ensureJobDirs(jobId);
     fs.writeFileSync(paths.cutsRawPath, text, "utf-8");
-    fs.writeFileSync(paths.cutsParsedPath, JSON.stringify(segments, null, 2), "utf-8");
+    fs.writeFileSync(
+      paths.cutsParsedPath,
+      JSON.stringify(
+        {
+          candidates: selection.candidates,
+          selected: segments,
+          removed: selection.removed,
+          selectionMode: selection.selectionMode,
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
   }
 
   return segments;
@@ -806,6 +1151,7 @@ export async function analyzeVideoWithGemini(
   videoPath: string,
   storeInfo?: StoreInfo,
   jobId?: string,
+  videoDuration?: number,
 ): Promise<AnalysisResult> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
@@ -819,7 +1165,13 @@ export async function analyzeVideoWithGemini(
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-  const segments = await requestCutsWithGemini(ai, videoPath, storeInfo, jobId);
+  const segments = await requestCutsWithGemini(
+    ai,
+    videoPath,
+    storeInfo,
+    jobId,
+    videoDuration,
+  );
   return requestScriptWithGemini(ai, segments, storeInfo);
 }
 
