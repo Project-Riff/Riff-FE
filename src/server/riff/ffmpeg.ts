@@ -15,6 +15,7 @@ export const TARGET_WIDTH = 1080;
 export const TARGET_HEIGHT = 1920;
 const SUBTITLE_TOP_RATIO = 0.65;
 const CLIP_EDGE_TRIM = 0.05;
+const FADE_TRANSITION_DURATION = 0.15;
 
 function buildSubtitleFilter(subtitlePath: string) {
   const escapedSubtitlePath = escapeSubtitlePathForFfmpeg(subtitlePath);
@@ -247,10 +248,10 @@ export async function cutSegments(
 
     await runCommand("ffmpeg", [
       "-y",
-      "-ss",
-      String(segment.start),
       "-i",
       sourcePath,
+      "-ss",
+      String(segment.start),
       "-t",
       String(duration),
       "-vf",
@@ -398,6 +399,7 @@ export async function concatClips(
 
   const inputArgs = clipPaths.flatMap((clipPath) => ["-i", clipPath]);
   const filterParts: string[] = [];
+  const effectiveDurations: number[] = [];
 
   for (let i = 0; i < clipPaths.length; i += 1) {
     const duration = durations[i];
@@ -405,6 +407,8 @@ export async function concatClips(
     const endTrim =
       i === clipPaths.length - 1 ? 0 : Math.min(CLIP_EDGE_TRIM, duration / 8);
     const trimmedEnd = Math.max(startTrim + 0.1, duration - endTrim);
+    const effectiveDuration = Math.max(0.1, trimmedEnd - startTrim);
+    effectiveDurations.push(effectiveDuration);
 
     filterParts.push(
       `[${i}:v]trim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},setpts=PTS-STARTPTS,scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p[v${i}]`,
@@ -414,10 +418,30 @@ export async function concatClips(
     );
   }
 
-  const concatInputs = clipPaths.map((_, i) => `[v${i}][a${i}]`).join("");
-  filterParts.push(
-    `${concatInputs}concat=n=${clipPaths.length}:v=1:a=1[vout][aout]`,
-  );
+  let currentVideoLabel = "v0";
+  let currentAudioLabel = "a0";
+  let accumulatedDuration = effectiveDurations[0];
+
+  for (let i = 1; i < clipPaths.length; i += 1) {
+    const transitionDuration = Math.min(
+      FADE_TRANSITION_DURATION,
+      Math.max(0.03, Math.min(accumulatedDuration, effectiveDurations[i]) / 4),
+    );
+    const offset = Math.max(0, accumulatedDuration - transitionDuration);
+    const nextVideoLabel = `vx${i}`;
+    const nextAudioLabel = `ax${i}`;
+
+    filterParts.push(
+      `[${currentVideoLabel}][v${i}]xfade=transition=fade:duration=${transitionDuration.toFixed(3)}:offset=${offset.toFixed(3)}[${nextVideoLabel}]`,
+    );
+    filterParts.push(
+      `[${currentAudioLabel}][a${i}]acrossfade=d=${transitionDuration.toFixed(3)}[${nextAudioLabel}]`,
+    );
+
+    currentVideoLabel = nextVideoLabel;
+    currentAudioLabel = nextAudioLabel;
+    accumulatedDuration += effectiveDurations[i] - transitionDuration;
+  }
 
   await runCommand("ffmpeg", [
     "-y",
@@ -425,9 +449,9 @@ export async function concatClips(
     "-filter_complex",
     filterParts.join(";"),
     "-map",
-    "[vout]",
+    `[${currentVideoLabel}]`,
     "-map",
-    "[aout]",
+    `[${currentAudioLabel}]`,
     "-c:v",
     "libx264",
     "-preset",

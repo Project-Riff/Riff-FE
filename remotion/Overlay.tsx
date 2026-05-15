@@ -39,7 +39,7 @@ const romanizedCityMap: Record<string, string> = {
 };
 
 function normalizeDisplayTitle(title: string) {
-  const normalized = title.trim();
+  const normalized = title.trim().replace(/시$/, "");
   return romanizedCityMap[normalized] ?? normalized;
 }
 
@@ -225,7 +225,7 @@ export const OverlayVideo: React.FC = () => {
             top: infoSubtitleTop,
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "90%",
+            width: "78%",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -234,7 +234,7 @@ export const OverlayVideo: React.FC = () => {
           <div
             style={{
               maxWidth: "100%",
-              padding: "14px 16px",
+              padding: "14px 20px",
               borderRadius: 18,
               background: "rgba(28, 20, 16, 0.38)",
               boxShadow:
