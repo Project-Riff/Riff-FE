@@ -39,7 +39,7 @@ const romanizedCityMap: Record<string, string> = {
 };
 
 function normalizeDisplayTitle(title: string) {
-  const normalized = title.trim();
+  const normalized = title.trim().replace(/시$/, "");
   return romanizedCityMap[normalized] ?? normalized;
 }
 
