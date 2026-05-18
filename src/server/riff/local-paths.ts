@@ -19,6 +19,7 @@ export function ensureJobDirs(jobId: string) {
     publicDir,
 
     statusPath: path.join(jobRoot, "status.json"),
+    logsPath: path.join(jobRoot, "logs.jsonl"),
 
     sourcePath: path.join(jobRoot, "source.mp4"),
     sourceOriginalPath: path.join(jobRoot, "source-original.mp4"),

@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { SubtitleItem } from "./types";
 
-const TARGET_AUDIO_DURATION = 29.5;
+const TARGET_AUDIO_DURATION = 19.5;
 // ElevenLabs 설정
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID =
@@ -323,7 +323,7 @@ export async function makeTtsWav(text: string, outWavPath: string) {
 
   const duration = await probeAudioDuration(rawWavPath);
 
-  // 3. 목표 시간(29.5초)보다 길 경우 배속 조절
+  // 3. 목표 시간(19.5초)보다 길 경우 배속 조절
   if (duration > TARGET_AUDIO_DURATION) {
     const speed = duration / TARGET_AUDIO_DURATION;
     const atempo = buildAtempoFilter(speed);
