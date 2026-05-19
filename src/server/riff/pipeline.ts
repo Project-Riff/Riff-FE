@@ -15,6 +15,7 @@ import {
 } from "./gemini";
 import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
+import { buildSfxCues } from "./sfx";
 import { writeSrtFile } from "./srt";
 import { AnalysisResult, ResumeFrom } from "./types";
 
@@ -491,11 +492,37 @@ export async function runRealPipeline(jobId: string) {
 
     await pushJobLog(jobId, "rendering", 97, "음성 및 자막 합성");
 
+    const sfxResult = buildSfxCues(analysis.segments);
+    const sfxCues = sfxResult.cues;
+
+    if (sfxResult.diagnostics.length > 0) {
+      await pushJobLog(
+        jobId,
+        "rendering",
+        97,
+        `효과음 매칭 ${sfxResult.diagnostics
+          .map(
+            (item) =>
+              `${item.presetId} <- ${item.shotType}(${item.matchedKeyword})`,
+          )
+          .join(", ")}`,
+      );
+    } else {
+      await pushJobLog(jobId, "rendering", 97, "효과음 매칭 없음");
+    }
+
+    await patchJob(jobId, {
+      artifacts: {
+        sfxDiagnostics: sfxResult.diagnostics,
+      },
+    });
+
     await muxVideoWithAudioAndSubtitles(
       paths.overlayPath,
       paths.ttsPath,
       undefined,
       paths.finalPath,
+      sfxCues,
     );
 
     const finalMeta = await probeVideo(paths.finalPath);

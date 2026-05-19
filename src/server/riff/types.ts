@@ -89,6 +89,15 @@ export interface JobArtifacts {
   overlayPath?: string;
   finalPath?: string;
   finalUrl?: string;
+  sfxDiagnostics?: Array<{
+    presetId: string;
+    matchedKeyword: string;
+    shotType: AnalysisShotType;
+    label: string;
+    startSec: number;
+    volume: number;
+    trimToSec: number;
+  }>;
 }
 
 export interface Job {
