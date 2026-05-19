@@ -360,7 +360,17 @@ type ParsedCutRow = {
   end: number;
   shotType: AnalysisShotType;
   label: string;
+  hookStrength: number;
+  visualClarity: number;
+  shortformImpact: number;
 };
+
+type FoodDetailRole =
+  | "action"
+  | "display"
+  | "serving"
+  | "eating"
+  | "closeup";
 
 type CandidateSelectionLog = {
   start: number;
@@ -370,10 +380,46 @@ type CandidateSelectionLog = {
   reason: string;
 };
 
+type CutParseIssue = {
+  line: string;
+  reason:
+    | "missing_columns"
+    | "time_parse_failed"
+    | "invalid_range"
+    | "invalid_type";
+};
+
 type CutSelectionResult = {
   candidates: ParsedCutRow[];
   selected: ParsedCutRow[];
   removed: CandidateSelectionLog[];
+  parseIssues: CutParseIssue[];
+  candidateDiagnostics: Array<{
+    start: number;
+    end: number;
+    shotType: AnalysisShotType;
+    label: string;
+    detailRole?: FoodDetailRole;
+    baseScore: number;
+    isBridgeCandidate: boolean;
+    hookStrength: number;
+    visualClarity: number;
+    shortformImpact: number;
+  }>;
+  selectionTrace: Array<{
+    slot: string;
+    start: number;
+    end: number;
+    shotType: AnalysisShotType;
+    label: string;
+    detailRole?: FoodDetailRole;
+    baseScore: number;
+    diversityAdjustment: number;
+    totalScore: number;
+    hookStrength: number;
+    visualClarity: number;
+    shortformImpact: number;
+  }>;
   selectionMode: "normal" | "fallback";
 };
 
@@ -388,6 +434,16 @@ const ALLOWED_SHOT_TYPES: AnalysisShotType[] = [
 function parseShotType(value: string): AnalysisShotType | null {
   const normalized = cleanScript(value).toLowerCase();
   return ALLOWED_SHOT_TYPES.find((type) => type === normalized) ?? null;
+}
+
+function parseFivePointScore(value: string | undefined, fallback = 3) {
+  const parsed = Number((value ?? "").trim());
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.min(5, Math.round(parsed)));
 }
 
 function extractKeywords(label: string) {
@@ -428,18 +484,152 @@ function getOverlapRatio(a: ParsedCutRow, b: ParsedCutRow) {
   return shorter > 0 ? overlap / shorter : 0;
 }
 
+function isSameSceneFamily(a: ParsedCutRow, b: ParsedCutRow) {
+  const overlapRatio = getOverlapRatio(a, b);
+  const startGap = Math.abs(a.start - b.start);
+  const endGap = Math.abs(a.end - b.end);
+  const keywordOverlap = getKeywordOverlapScore(a.label, b.label);
+  const aRole =
+    a.shotType === "food_detail" ? inferFoodDetailRole(a.label) : undefined;
+  const bRole =
+    b.shotType === "food_detail" ? inferFoodDetailRole(b.label) : undefined;
+  const sameFoodRole =
+    a.shotType === "food_detail" &&
+    b.shotType === "food_detail" &&
+    aRole === bRole;
+
+  if (overlapRatio >= 0.45) {
+    return true;
+  }
+
+  // 진열/쇼케이스 계열은 너무 쉽게 같은 장면으로 묶지 않는다.
+  // 그래야 대표 display 후보 하나가 후보 단계에서 통째로 사라지지 않는다.
+  if (aRole === "display" || bRole === "display") {
+    return (
+      sameFoodRole &&
+      startGap <= 6 &&
+      endGap <= 6 &&
+      keywordOverlap >= 0.55
+    );
+  }
+
+  if (
+    startGap <= 8 &&
+    endGap <= 8 &&
+    a.shotType === b.shotType &&
+    (keywordOverlap >= 0.3 || sameFoodRole)
+  ) {
+    return true;
+  }
+
+  if (
+    a.shotType === "food_detail" &&
+    b.shotType === "food_detail" &&
+    startGap <= 10 &&
+    endGap <= 10 &&
+    keywordOverlap >= 0.4
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function inferFoodDetailRole(label: string): FoodDetailRole {
+  const normalized = cleanScript(label).toLowerCase();
+
+  if (
+    /(먹는|먹자마자|한입|한 입|표정|반응|즐기는|손님들이.*즐기|대화하는)/.test(
+      normalized,
+    )
+  ) {
+    return "eating";
+  }
+
+  if (
+    /(자르|잘린|흘러|열리|뿌리|들어올리|벗겨|제거|조리|굽|붓|올리)/.test(
+      normalized,
+    )
+  ) {
+    return "action";
+  }
+
+  if (
+    /(상차림|테이블|세팅|접시에 담긴|놓인 테이블|음료와.*함께|항공샷)/.test(
+      normalized,
+    )
+  ) {
+    return "serving";
+  }
+
+  if (
+    /(쇼케이스|진열|매대|진열대|display|전시|여러.*케이크|다양한.*빵)/.test(
+      normalized,
+    )
+  ) {
+    return "display";
+  }
+
+  return "closeup";
+}
+
+function isBridgeCandidate(row: ParsedCutRow) {
+  if (row.shotType === "interior") {
+    return true;
+  }
+
+  if (row.shotType === "location") {
+    return getKeywordOverlapScore(
+      row.label,
+      "전경 입구 입구 주변 매장 진입 외부 분위기 실내 분위기",
+    ) >= 0.12;
+  }
+
+  if (row.shotType === "food_detail") {
+    const role = inferFoodDetailRole(row.label);
+    return role === "serving" || role === "display";
+  }
+
+  return false;
+}
+
 function scoreCutCandidate(row: ParsedCutRow) {
   const duration = row.end - row.start;
+  let score = 0;
 
   if (row.shotType === "food_hook") {
-    return -Math.abs(duration - 2.3);
+    score = -Math.abs(duration - 2.3);
+  } else if (row.shotType === "ending") {
+    score = -Math.abs(duration - 2.8) + 0.1;
+  } else if (row.shotType === "food_detail") {
+    const role = inferFoodDetailRole(row.label);
+
+    if (role === "action" || role === "eating") {
+      score = -Math.abs(duration - 2.6) + 0.08;
+    } else if (role === "display" || role === "serving") {
+      score = -Math.abs(duration - 3.0) + 0.04;
+    } else {
+      score = -Math.abs(duration - 2.8);
+    }
+  } else {
+    score = -Math.abs(duration - 2.9);
   }
 
-  if (row.shotType === "ending") {
-    return -Math.abs(duration - 2.8) + 0.1;
+  const hookBonus = (row.hookStrength - 3) * 0.18;
+  const clarityBonus = (row.visualClarity - 3) * 0.16;
+  const impactBonus = (row.shortformImpact - 3) * 0.18;
+
+  if (row.shotType === "food_hook") {
+    score += hookBonus + clarityBonus + impactBonus;
+  } else if (row.shotType === "food_detail") {
+    score += clarityBonus + impactBonus;
+  } else if (row.shotType === "ending") {
+    score += clarityBonus + impactBonus * 0.8;
+  } else {
+    score += clarityBonus;
   }
 
-  return -Math.abs(duration - 2.9);
+  return score;
 }
 
 function getDiversityAdjustment(
@@ -462,6 +652,19 @@ function getDiversityAdjustment(
   }
 
   if (candidate.shotType === "food_detail") {
+    const candidateRole = inferFoodDetailRole(candidate.label);
+
+    if (
+      candidateRole === "display" &&
+      !selected.some(
+        (picked) =>
+          picked.shotType === "food_detail" &&
+          inferFoodDetailRole(picked.label) === "display",
+      )
+    ) {
+      adjustment += 0.18;
+    }
+
     if (maxKeywordOverlap < 0.25) {
       adjustment += 0.22;
     }
@@ -470,7 +673,8 @@ function getDiversityAdjustment(
       recent.some(
         (picked) =>
           picked.shotType === "food_detail" &&
-          getKeywordOverlapScore(candidate.label, picked.label) >= 0.4,
+          (getKeywordOverlapScore(candidate.label, picked.label) >= 0.4 ||
+            inferFoodDetailRole(picked.label) === candidateRole),
       )
     ) {
       adjustment -= 0.35;
@@ -479,6 +683,18 @@ function getDiversityAdjustment(
 
   if (recent.some((picked) => picked.shotType === candidate.shotType)) {
     adjustment -= 0.15;
+  }
+
+  // 훅 2개 직후 첫 연결 구간에서는 완충 성격 후보를 약하게 우대한다.
+  // 단, 별도 슬롯으로 강제하지 않고 점수에만 작게 반영한다.
+  if (
+    selected.length === 2 &&
+    selected[0]?.shotType === "food_hook" &&
+    (selected[1]?.shotType === "food_hook" ||
+      selected[1]?.shotType === "food_detail") &&
+    isBridgeCandidate(candidate)
+  ) {
+    adjustment += 0.16;
   }
 
   if (maxKeywordOverlap >= 0.5) {
@@ -535,30 +751,40 @@ function validateCandidateRows(
 }
 
 function dedupeCutRows(rows: ParsedCutRow[]) {
-  const sorted = [...rows].sort((a, b) => a.start - b.start);
   const deduped: ParsedCutRow[] = [];
   const removed: CandidateSelectionLog[] = [];
 
-  for (const row of sorted) {
-    const previous = deduped[deduped.length - 1];
+  for (const row of rows) {
+    const duplicateOf = deduped.find((picked) => {
+      const overlap = Math.min(picked.end, row.end) - Math.max(picked.start, row.start);
+      const almostSameWindow =
+        Math.abs(picked.start - row.start) < 1.5 &&
+        Math.abs(picked.end - row.end) < 1.5;
+      const sameTypeSimilarLabel =
+        picked.shotType === row.shotType &&
+        getKeywordOverlapScore(picked.label, row.label) >= 0.6;
+      const sameFoodRoleSimilarLabel =
+        picked.shotType === "food_detail" &&
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(picked.label) === inferFoodDetailRole(row.label) &&
+        getKeywordOverlapScore(picked.label, row.label) >= 0.45;
+      const sameSceneFamily =
+        picked.shotType === row.shotType &&
+        isSameSceneFamily(picked, row);
 
-    if (!previous) {
-      deduped.push(row);
-      continue;
-    }
+      return (
+        overlap >= 0.75 ||
+        almostSameWindow ||
+        sameTypeSimilarLabel ||
+        sameFoodRoleSimilarLabel ||
+        sameSceneFamily
+      );
+    });
 
-    const overlap = Math.min(previous.end, row.end) - Math.max(previous.start, row.start);
-    const almostSameWindow =
-      Math.abs(previous.start - row.start) < 1.5 &&
-      Math.abs(previous.end - row.end) < 1.5;
-    const similarLabel =
-      previous.shotType === row.shotType &&
-      getKeywordOverlapScore(previous.label, row.label) >= 0.6;
-
-    if (overlap >= 0.75 || almostSameWindow || similarLabel) {
+    if (duplicateOf) {
       removed.push({
         ...row,
-        reason: overlap >= 0.75 || almostSameWindow ? "duplicate_window" : "duplicate_label",
+        reason: "duplicate_candidate",
       });
       continue;
     }
@@ -580,8 +806,20 @@ function reorderCutRowsForStructure(rows: ParsedCutRow[]) {
   const remaining = [...rows];
   const ordered: ParsedCutRow[] = [];
 
-  const takeFirst = (predicate: (row: ParsedCutRow) => boolean) => {
-    const index = remaining.findIndex(predicate);
+  const takeEarliest = (predicate: (row: ParsedCutRow) => boolean) => {
+    let index = -1;
+    let earliestStart = Number.POSITIVE_INFINITY;
+
+    remaining.forEach((row, candidateIndex) => {
+      if (!predicate(row)) {
+        return;
+      }
+
+      if (row.start < earliestStart) {
+        earliestStart = row.start;
+        index = candidateIndex;
+      }
+    });
 
     if (index === -1) {
       return null;
@@ -592,71 +830,126 @@ function reorderCutRowsForStructure(rows: ParsedCutRow[]) {
     return row;
   };
 
-  // 도입부는 음식 훅 2개를 최우선으로 배치한다.
-  takeFirst((row) => row.shotType === "food_hook");
-  takeFirst((row) => row.shotType === "food_hook");
+  const takeAllSorted = (predicate: (row: ParsedCutRow) => boolean) => {
+    const matches = remaining
+      .filter(predicate)
+      .sort((a, b) => a.start - b.start);
+
+    for (const row of matches) {
+      const index = remaining.findIndex(
+        (item) =>
+          item.start === row.start &&
+          item.end === row.end &&
+          item.shotType === row.shotType &&
+          item.label === row.label,
+      );
+
+      if (index === -1) {
+        continue;
+      }
+
+      const [picked] = remaining.splice(index, 1);
+      ordered.push(picked);
+    }
+  };
+
+  // 도입부는 음식 훅 1개를 최우선으로 배치한다.
+  takeEarliest((row) => row.shotType === "food_hook");
 
   // 초반에는 위치/내부 컷을 1~2개만 짧게 배치한다.
-  if (!takeFirst((row) => row.shotType === "location")) {
-    takeFirst((row) => row.shotType === "interior");
+  if (!takeEarliest((row) => row.shotType === "location")) {
+    takeEarliest((row) => row.shotType === "interior");
   }
 
   if (ordered.length < 4) {
-    takeFirst(
+    takeEarliest(
       (row) =>
         row.shotType === "location" || row.shotType === "interior",
     );
   }
 
-  for (const row of remaining.filter((item) => item.shotType === "food_detail")) {
-    ordered.push(row);
-  }
-
-  for (const row of remaining.filter((item) => item.shotType === "food_hook")) {
-    ordered.push(row);
-  }
-
-  for (const row of remaining.filter((item) => item.shotType === "location")) {
-    ordered.push(row);
-  }
-
-  for (const row of remaining.filter((item) => item.shotType === "interior")) {
-    ordered.push(row);
-  }
-
-  for (const row of remaining.filter((item) => item.shotType === "ending")) {
-    ordered.push(row);
-  }
+  takeAllSorted((item) => item.shotType === "food_detail");
+  takeAllSorted((item) => item.shotType === "food_hook");
+  takeAllSorted((item) => item.shotType === "location");
+  takeAllSorted((item) => item.shotType === "interior");
+  takeAllSorted((item) => item.shotType === "ending");
 
   return ordered;
 }
 
 function pickBestCandidates(
   rows: ParsedCutRow[],
-  minCount = 6,
+  minCount = 7,
   maxCount = 8,
 ) {
   const selected: ParsedCutRow[] = [];
   const remaining = [...rows];
+  const selectionTrace: CutSelectionResult["selectionTrace"] = [];
+
+  const getSelectedDisplays = () =>
+    selected.filter(
+      (row) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "display",
+    );
+
+  const getSameSceneFamilyFoodDetailCount = (candidate: ParsedCutRow) => {
+    if (candidate.shotType !== "food_detail") {
+      return 0;
+    }
+
+    return selected.filter(
+      (picked) =>
+        picked.shotType === "food_detail" && isSameSceneFamily(candidate, picked),
+    ).length;
+  };
+
+  const isDistinctDisplayEnough = (candidate: ParsedCutRow) => {
+    if (
+      candidate.shotType !== "food_detail" ||
+      inferFoodDetailRole(candidate.label) !== "display"
+    ) {
+      return false;
+    }
+
+    const displays = getSelectedDisplays();
+
+    if (displays.length >= 2) {
+      return false;
+    }
+
+    return displays.every((picked) => {
+      if (isSameSceneFamily(candidate, picked)) {
+        return false;
+      }
+
+      return getKeywordOverlapScore(candidate.label, picked.label) < 0.35;
+    });
+  };
 
   const takeBest = (
+    slot: string,
     predicate: (row: ParsedCutRow) => boolean,
-    reason: string,
   ) => {
     let bestIndex = -1;
     let bestScore = Number.NEGATIVE_INFINITY;
+    let bestBaseScore = 0;
+    let bestDiversityAdjustment = 0;
 
     remaining.forEach((row, index) => {
       if (!predicate(row)) {
         return;
       }
 
-      const totalScore =
-        scoreCutCandidate(row) + getDiversityAdjustment(row, selected);
+      const baseScore = scoreCutCandidate(row);
+      const diversityAdjustment = getDiversityAdjustment(row, selected);
+      const totalScore = baseScore + diversityAdjustment;
 
       if (totalScore > bestScore) {
         bestScore = totalScore;
         bestIndex = index;
+        bestBaseScore = baseScore;
+        bestDiversityAdjustment = diversityAdjustment;
       }
     });
 
@@ -666,13 +959,47 @@ function pickBestCandidates(
 
     const [row] = remaining.splice(bestIndex, 1);
     selected.push(row);
+    selectionTrace.push({
+      slot,
+      start: row.start,
+      end: row.end,
+      shotType: row.shotType,
+      label: row.label,
+      detailRole:
+        row.shotType === "food_detail"
+          ? inferFoodDetailRole(row.label)
+          : undefined,
+      baseScore: Number(bestBaseScore.toFixed(3)),
+      diversityAdjustment: Number(bestDiversityAdjustment.toFixed(3)),
+      totalScore: Number(bestScore.toFixed(3)),
+      hookStrength: row.hookStrength,
+      visualClarity: row.visualClarity,
+      shortformImpact: row.shortformImpact,
+    });
     return row;
   };
 
   const isDistinctEnough = (candidate: ParsedCutRow) => {
+    if (getSameSceneFamilyFoodDetailCount(candidate) >= 1) {
+      return false;
+    }
+
     return selected.every((picked) => {
       if (getOverlapRatio(candidate, picked) >= 0.45) {
         return false;
+      }
+
+      if (isSameSceneFamily(candidate, picked)) {
+        if (candidate.shotType === picked.shotType) {
+          return false;
+        }
+
+        if (
+          candidate.shotType === "food_detail" &&
+          picked.shotType === "food_detail"
+        ) {
+          return false;
+        }
       }
 
       if (
@@ -682,49 +1009,136 @@ function pickBestCandidates(
         return false;
       }
 
+      if (
+        candidate.shotType === "food_detail" &&
+        picked.shotType === "food_detail" &&
+        inferFoodDetailRole(candidate.label) === inferFoodDetailRole(picked.label) &&
+        getKeywordOverlapScore(candidate.label, picked.label) >= 0.45
+      ) {
+        return false;
+      }
+
       return true;
     });
   };
 
-  takeBest((row) => row.shotType === "food_hook", "selected_intro_1");
   takeBest(
-    (row) =>
-      (row.shotType === "food_hook" || row.shotType === "food_detail") &&
-      isDistinctEnough(row),
-    "selected_intro_2",
+    "opening_hook_1",
+    (row) => row.shotType === "food_hook",
   );
   takeBest(
+    "food_variety_display",
     (row) =>
-      (row.shotType === "location" || row.shotType === "interior") &&
+      row.shotType === "food_detail" &&
+      inferFoodDetailRole(row.label) === "display" &&
       isDistinctEnough(row),
-    "selected_space_info",
   );
-  takeBest((row) => row.shotType === "ending" && isDistinctEnough(row), "selected_ending");
-
-  const preferredFillOrder: AnalysisShotType[] = [
-    "food_detail",
-    "interior",
-    "location",
-    "food_hook",
+  takeBest(
+    "space_location",
+    (row) => row.shotType === "location" && isDistinctEnough(row),
+  );
+  takeBest(
+    "space_interior",
+    (row) => row.shotType === "interior" && isDistinctEnough(row),
+  );
+  takeBest(
     "ending",
+    (row) => row.shotType === "ending" && isDistinctEnough(row),
+  );
+  takeBest(
+    "food_appeal_1",
+    (row) =>
+      row.shotType === "food_detail" &&
+      ["action", "closeup", "serving", "eating"].includes(
+        inferFoodDetailRole(row.label),
+      ) &&
+      isDistinctEnough(row),
+  );
+  takeBest(
+    "food_variety_display_2",
+    (row) => isDistinctDisplayEnough(row) && isDistinctEnough(row),
+  );
+  takeBest(
+    "food_appeal_2",
+    (row) =>
+      row.shotType === "food_detail" &&
+      ["action", "closeup", "eating", "serving"].includes(
+        inferFoodDetailRole(row.label),
+      ) &&
+      isDistinctEnough(row),
+  );
+
+  const preferredFillOrder: Array<{
+    name: string;
+    predicate: (row: ParsedCutRow) => boolean;
+  }> = [
+    {
+      name: "food_hook",
+      predicate: (row) => row.shotType === "food_hook",
+    },
+    {
+      name: "interior",
+      predicate: (row) => row.shotType === "interior",
+    },
+    {
+      name: "location",
+      predicate: (row) => row.shotType === "location",
+    },
+    {
+      name: "food_serving",
+      predicate: (row) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "serving",
+    },
+    {
+      name: "food_action",
+      predicate: (row) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "action",
+    },
+    {
+      name: "food_eating",
+      predicate: (row) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "eating",
+    },
+    {
+      name: "food_closeup",
+      predicate: (row) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "closeup",
+    },
+    {
+      name: "food_display",
+      predicate: (row) => isDistinctDisplayEnough(row),
+    },
+    {
+      name: "ending",
+      predicate: (row) => row.shotType === "ending",
+    },
   ];
 
-  for (const shotType of preferredFillOrder) {
+  for (const entry of preferredFillOrder) {
     while (selected.length < maxCount) {
       let bestIndex = -1;
       let bestScore = Number.NEGATIVE_INFINITY;
+      let bestBaseScore = 0;
+      let bestDiversityAdjustment = 0;
 
       remaining.forEach((row, index) => {
-        if (row.shotType !== shotType || !isDistinctEnough(row)) {
+        if (!entry.predicate(row) || !isDistinctEnough(row)) {
           return;
         }
 
-        const totalScore =
-          scoreCutCandidate(row) + getDiversityAdjustment(row, selected);
+        const baseScore = scoreCutCandidate(row);
+        const diversityAdjustment = getDiversityAdjustment(row, selected);
+        const totalScore = baseScore + diversityAdjustment;
 
         if (totalScore > bestScore) {
           bestScore = totalScore;
           bestIndex = index;
+          bestBaseScore = baseScore;
+          bestDiversityAdjustment = diversityAdjustment;
         }
       });
 
@@ -734,27 +1148,97 @@ function pickBestCandidates(
 
       const [row] = remaining.splice(bestIndex, 1);
       selected.push(row);
+      selectionTrace.push({
+        slot: `fill_${entry.name}`,
+        start: row.start,
+        end: row.end,
+        shotType: row.shotType,
+        label: row.label,
+        detailRole:
+          row.shotType === "food_detail"
+            ? inferFoodDetailRole(row.label)
+            : undefined,
+        baseScore: Number(bestBaseScore.toFixed(3)),
+        diversityAdjustment: Number(bestDiversityAdjustment.toFixed(3)),
+        totalScore: Number(bestScore.toFixed(3)),
+        hookStrength: row.hookStrength,
+        visualClarity: row.visualClarity,
+        shortformImpact: row.shortformImpact,
+      });
     }
   }
 
   if (selected.length < minCount) {
-    for (const row of remaining) {
+    const fallbackPriority = [
+      (row: ParsedCutRow) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "display",
+      (row: ParsedCutRow) => row.shotType === "food_hook",
+      (row: ParsedCutRow) => row.shotType === "interior",
+      (row: ParsedCutRow) => row.shotType === "location",
+      (row: ParsedCutRow) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "eating",
+      (row: ParsedCutRow) =>
+        row.shotType === "food_detail" &&
+        inferFoodDetailRole(row.label) === "action",
+      (row: ParsedCutRow) => row.shotType === "food_detail",
+      (row: ParsedCutRow) => true,
+    ];
+
+    for (const predicate of fallbackPriority) {
+      for (const row of remaining) {
+        if (selected.length >= minCount) {
+          break;
+        }
+
+        if (!predicate(row) || !isDistinctEnough(row)) {
+          continue;
+        }
+
+        selected.push(row);
+        selectionTrace.push({
+          slot: "fallback_fill",
+          start: row.start,
+          end: row.end,
+          shotType: row.shotType,
+          label: row.label,
+          detailRole:
+            row.shotType === "food_detail"
+              ? inferFoodDetailRole(row.label)
+              : undefined,
+          baseScore: Number(scoreCutCandidate(row).toFixed(3)),
+          diversityAdjustment: Number(
+            getDiversityAdjustment(row, selected.slice(0, -1)).toFixed(3),
+          ),
+          totalScore: Number(
+            (
+              scoreCutCandidate(row) +
+              getDiversityAdjustment(row, selected.slice(0, -1))
+            ).toFixed(3),
+          ),
+          hookStrength: row.hookStrength,
+          visualClarity: row.visualClarity,
+          shortformImpact: row.shortformImpact,
+        });
+      }
+
       if (selected.length >= minCount) {
         break;
       }
-
-      selected.push(row);
     }
   }
 
   return {
     selected,
+    selectionTrace,
     selectionMode: selected.length >= minCount ? "normal" : "fallback",
   } as const;
 }
 
 function buildCutSelectionResult(
   rows: ParsedCutRow[],
+  parseIssues: CutParseIssue[] = [],
   videoDuration?: number,
 ): CutSelectionResult {
   const validation = validateCandidateRows(rows, videoDuration);
@@ -779,6 +1263,23 @@ function buildCutSelectionResult(
     candidates: dedupe.deduped,
     selected: reordered,
     removed: [...validation.removed, ...dedupe.removed, ...unselected],
+    parseIssues,
+    candidateDiagnostics: dedupe.deduped.map((row) => ({
+      start: row.start,
+      end: row.end,
+      shotType: row.shotType,
+      label: row.label,
+      detailRole:
+        row.shotType === "food_detail"
+          ? inferFoodDetailRole(row.label)
+          : undefined,
+      baseScore: Number(scoreCutCandidate(row).toFixed(3)),
+      isBridgeCandidate: isBridgeCandidate(row),
+      hookStrength: row.hookStrength,
+      visualClarity: row.visualClarity,
+      shortformImpact: row.shortformImpact,
+    })),
+    selectionTrace: picked.selectionTrace,
     selectionMode: picked.selectionMode,
   };
 }
@@ -829,6 +1330,7 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
   });
 
   const parsedRows: ParsedCutRow[] = [];
+  const parseIssues: CutParseIssue[] = [];
 
   for (let i = 0; i < rows.length; i += 1) {
     const cols = rows[i]
@@ -836,7 +1338,13 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
       .map((col) => col.trim())
       .filter(Boolean);
 
-    if (cols.length < 3) continue;
+    if (cols.length < 3) {
+      parseIssues.push({
+        line: rows[i],
+        reason: "missing_columns",
+      });
+      continue;
+    }
 
     try {
       const { start, end } = parseTimeRange(cols[0]);
@@ -844,10 +1352,18 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
       const visual = cols[2] ?? "";
 
       if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        parseIssues.push({
+          line: rows[i],
+          reason: "invalid_range",
+        });
         continue;
       }
 
       if (!shotType) {
+        parseIssues.push({
+          line: rows[i],
+          reason: "invalid_type",
+        });
         continue;
       }
 
@@ -856,13 +1372,24 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
         end,
         shotType,
         label: visual || `구간 ${i + 1}`,
+        hookStrength: parseFivePointScore(cols[3], 3),
+        visualClarity: parseFivePointScore(cols[4], 3),
+        shortformImpact: parseFivePointScore(cols[5], 3),
       });
     } catch {
+      parseIssues.push({
+        line: rows[i],
+        reason: "time_parse_failed",
+      });
       continue;
     }
   }
 
-  const selection = buildCutSelectionResult(parsedRows, videoDuration);
+  const selection = buildCutSelectionResult(
+    parsedRows,
+    parseIssues,
+    videoDuration,
+  );
   const segments = selection.selected.map(({ start, end, shotType, label }) => ({
     start,
     end,
@@ -872,6 +1399,13 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
 
   if (segments.length === 0) {
     throw new Error(`Gemini cuts table 파싱 실패\nraw:\n${text}`);
+  }
+
+  if (parseIssues.length > 0) {
+    console.warn(
+      `[Gemini] cuts parse 이슈 ${parseIssues.length}개`,
+      parseIssues.slice(0, 10),
+    );
   }
 
   validateCutDurations(segments);
@@ -1087,8 +1621,11 @@ async function requestCutsWithGemini(
       JSON.stringify(
         {
           candidates: selection.candidates,
+          candidateDiagnostics: selection.candidateDiagnostics,
           selected: segments,
+          selectionTrace: selection.selectionTrace,
           removed: selection.removed,
+          parseIssues: selection.parseIssues,
           selectionMode: selection.selectionMode,
         },
         null,

@@ -17,6 +17,23 @@ const SUBTITLE_TOP_RATIO = 0.65;
 const CLIP_EDGE_TRIM = 0.05;
 const FADE_TRANSITION_DURATION = 0.15;
 
+function buildShortformLookFilter() {
+  return [
+    // 1) Neutralize warm cast first so whites stay cleaner.
+    "colorbalance=rs=-0.05:gs=-0.02:bs=0.05:rm=-0.03:gm=0.00:bm=0.03:rh=-0.04:gh=-0.01:bh=0.06",
+    // 2) Lift exposure gently without overcooking the frame.
+    "eq=brightness=0.010:gamma=1.01",
+    // 3) Pull back harsh highlights a touch while keeping bright plates cleaner.
+    "curves=all='0/0 0.18/0.18 0.55/0.54 0.82/0.79 1/0.97'",
+    // 4) Add restrained contrast.
+    "eq=contrast=1.05",
+    // 5) Restore texture.
+    "unsharp=5:5:0.85:5:5:0.0",
+    // 6) Add only a light amount of color at the end.
+    "eq=saturation=1.07",
+  ].join(",");
+}
+
 function buildSubtitleFilter(subtitlePath: string) {
   const escapedSubtitlePath = escapeSubtitlePathForFfmpeg(subtitlePath);
   const marginV = Math.round(TARGET_HEIGHT * SUBTITLE_TOP_RATIO);
@@ -261,7 +278,7 @@ export async function cutSegments(
       "-preset",
       "veryfast",
       "-crf",
-      "23",
+      "21",
       "-c:a",
       "aac",
       clipPath,
@@ -306,7 +323,7 @@ export async function retimeClipToDuration(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -337,7 +354,7 @@ export async function trimClipToDuration(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -382,7 +399,7 @@ export async function concatClips(
       "-preset",
       "veryfast",
       "-crf",
-      "23",
+      "21",
       "-c:a",
       "aac",
       outputPath,
@@ -457,7 +474,7 @@ export async function concatClips(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -481,7 +498,7 @@ export async function muxVideoWithAudioAndSubtitles(
   ensureParentDir(outputPath);
   const videoMeta = await probeVideo(videoPath);
   const outputDuration = videoMeta.duration;
-  const extraFilters: string[] = [];
+  const extraFilters: string[] = [buildShortformLookFilter()];
 
   if (subtitlePath) {
     if (!fs.existsSync(subtitlePath)) {
@@ -521,7 +538,7 @@ export async function muxVideoWithAudioAndSubtitles(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
