@@ -14,7 +14,7 @@ import {
   deriveRegionTitle,
   regenerateScriptWithGemini,
 } from "./gemini";
-import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
+import { makeTtsWav, measureSubtitleTimings, probeAudioDuration } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
 import { buildSfxCues } from "./sfx";
 import { writeSrtFile } from "./srt";
@@ -71,6 +71,63 @@ function shouldSkipBody(resumeFrom?: ResumeFrom) {
     resumeFrom === "title" ||
     resumeFrom === "subtitle-only"
   );
+}
+
+function scaleSubtitleTimingsToDuration(
+  subtitles: AnalysisResult["subtitles"],
+  targetDuration: number,
+) {
+  if (!subtitles || subtitles.length === 0) {
+    return subtitles;
+  }
+
+  const sourceDuration = subtitles[subtitles.length - 1]?.end ?? 0;
+
+  if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
+    return subtitles;
+  }
+
+  const ratio = targetDuration / sourceDuration;
+  const scaled = subtitles.map((item) => {
+    const rawDuration = Math.max(0, item.end - item.start);
+    const scaledDuration = Number((rawDuration * ratio).toFixed(3));
+
+    return {
+      ...item,
+      start: 0,
+      end: scaledDuration,
+    };
+  });
+
+  let cursor = 0;
+
+  return scaled
+    .map((item, index) => {
+      const isLast = index === scaled.length - 1;
+      const duration = Math.max(0, item.end - item.start);
+      const start =
+        index === 0
+          ? 0
+          : Number(cursor.toFixed(3));
+      const end = isLast
+        ? Number(targetDuration.toFixed(3))
+        : Number((start + duration).toFixed(3));
+
+      cursor = end;
+
+      return {
+        ...item,
+        start,
+        end,
+      };
+    })
+    .map((item, index, arr) => ({
+      ...item,
+      end:
+        index === arr.length - 1
+          ? item.end
+          : Number(Math.min(item.end, arr[index + 1].start).toFixed(3)),
+    }));
 }
 
 function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
@@ -427,10 +484,19 @@ export async function runRealPipeline(jobId: string) {
     await pushJobLog(jobId, "tts", 80, "TTS 생성 중");
 
     if (!shouldSkipTts(resumeFrom) || !fs.existsSync(paths.ttsPath)) {
+      let measuredSubtitles = analysis.subtitles;
+
       if (analysis.subtitles?.length) {
-        analysis.subtitles = await makeTimedTtsWav(
-          analysis.subtitles,
-          paths.ttsPath,
+        measuredSubtitles = await measureSubtitleTimings(analysis.subtitles);
+      }
+
+      await makeTtsWav(analysis.narration, paths.ttsPath);
+
+      if (measuredSubtitles?.length) {
+        const ttsDuration = await probeAudioDuration(paths.ttsPath);
+        analysis.subtitles = scaleSubtitleTimingsToDuration(
+          measuredSubtitles,
+          ttsDuration,
         );
         writeSrtFile(analysis.subtitles, subtitlePath);
         fs.writeFileSync(
@@ -438,9 +504,8 @@ export async function runRealPipeline(jobId: string) {
           JSON.stringify(analysis, null, 2),
           "utf-8",
         );
-      } else {
-        await makeTtsWav(analysis.narration, paths.ttsPath);
       }
+
       console.log(`[Pipeline] TTS 생성 완료 path=${paths.ttsPath}`);
     } else {
       assertFileExists(paths.ttsPath, "TTS");

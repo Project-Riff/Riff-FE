@@ -124,7 +124,7 @@ async function generateContentWithRetry(
 const FINAL_SCRIPT_DURATION = 20;
 const EARLY_INFO_DURATION = 9;
 const MIN_SUBTITLE_CHUNKS = 5;
-const MAX_SUBTITLE_CHUNKS = 7;
+const MAX_SUBTITLE_TEXT_LENGTH = 24;
 
 function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
   const filePath = path.join(process.cwd(), "src/prompts", promptFileName);
@@ -1638,11 +1638,75 @@ function splitSubtitleChunks(value: string) {
     .filter(Boolean);
 }
 
+function collapseSpeechText(value: string) {
+  return cleanScript(value)
+    .replace(/[.,!?~…'"“”‘’:/\-]/g, "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function splitLongSubtitleText(text: string): string[] {
+  const normalized = cleanScript(text);
+
+  if (normalized.length <= MAX_SUBTITLE_TEXT_LENGTH) {
+    return [normalized];
+  }
+
+  const words = normalized.split(" ").filter(Boolean);
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+
+    if (next.length <= MAX_SUBTITLE_TEXT_LENGTH) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      chunks.push(current);
+      current = word;
+      continue;
+    }
+
+    chunks.push(word.slice(0, MAX_SUBTITLE_TEXT_LENGTH));
+    current = word.slice(MAX_SUBTITLE_TEXT_LENGTH).trim();
+  }
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks.flatMap((chunk) =>
+    chunk.length > MAX_SUBTITLE_TEXT_LENGTH ? splitLongSubtitleText(chunk) : [chunk],
+  );
+}
+
+function buildSubtitleChunksFromNarration(narration: string): string[] {
+  const source = cleanScript(narration);
+
+  if (!source) {
+    return [];
+  }
+
+  const sentenceLikeChunks = source
+    .split(/(?<=[.!?。！？])\s+|(?<=,)\s+|(?<=\.)\s+/)
+    .map((item) => cleanScript(item))
+    .filter(Boolean);
+
+  return sentenceLikeChunks.flatMap((chunk) => splitLongSubtitleText(chunk));
+}
+
+function subtitleChunksMatchNarration(narration: string, chunks: string[]) {
+  return collapseSpeechText(narration) === collapseSpeechText(chunks.join(" "));
+}
+
 function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
   const normalized = texts
     .map((item) => cleanScript(item))
-    .filter(Boolean)
-    .slice(0, MAX_SUBTITLE_CHUNKS);
+    .filter(Boolean);
 
   const fallback = fallbackSource
     .map((item) => cleanScript(item))
@@ -1662,7 +1726,7 @@ function normalizeSubtitleChunks(texts: string[], fallbackSource: string[]) {
     normalized.push(`매장 정보 ${normalized.length + 1}`);
   }
 
-  return normalized.slice(0, MAX_SUBTITLE_CHUNKS);
+  return normalized;
 }
 
 function buildSubtitleItems(texts: string[]): SubtitleItem[] {
@@ -1688,11 +1752,9 @@ function buildFallbackSubtitleChunks(
   narration: string,
   heroSubtitle?: string,
 ): string[] {
-  const candidate = narration || heroSubtitle || "매장 정보 소개";
-  const baseChunks = candidate
-    .split(/[.!?。！？]/)
-    .map((item) => cleanScript(item))
-    .filter(Boolean);
+  const baseChunks = buildSubtitleChunksFromNarration(
+    narration || heroSubtitle || "매장 정보 소개",
+  );
 
   return normalizeSubtitleChunks(baseChunks, [
     heroSubtitle ?? "",
@@ -1724,15 +1786,18 @@ function parseScriptResult(
     "subtitleChunks",
     "subtitles",
   ]);
-  const subtitleChunks = splitSubtitleChunks(subtitleChunkRaw).length > 0
-    ? normalizeSubtitleChunks(splitSubtitleChunks(subtitleChunkRaw), [
-      heroSubtitle ?? "",
-      narration,
-      storeInfo?.address ?? "",
-      storeInfo?.name ?? "",
-      storeInfo?.strengths ?? "",
-    ])
-    : buildFallbackSubtitleChunks(narration, heroSubtitle);
+  const requestedSubtitleChunks = splitSubtitleChunks(subtitleChunkRaw);
+  const subtitleChunks =
+    requestedSubtitleChunks.length > 0 &&
+    subtitleChunksMatchNarration(narration, requestedSubtitleChunks)
+      ? normalizeSubtitleChunks(requestedSubtitleChunks, [
+        heroSubtitle ?? "",
+        narration,
+        storeInfo?.address ?? "",
+        storeInfo?.name ?? "",
+        storeInfo?.strengths ?? "",
+      ])
+      : buildFallbackSubtitleChunks(narration, heroSubtitle);
   const subtitles = buildSubtitleItems(subtitleChunks);
 
   return {

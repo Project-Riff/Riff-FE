@@ -64,7 +64,7 @@ function isMissingEdgeTtsModule(error: unknown) {
   return /No module named edge_tts/i.test(error.message);
 }
 
-async function probeAudioDuration(filePath: string) {
+export async function probeAudioDuration(filePath: string) {
   const output = await runCapture("ffprobe", [
     "-v",
     "error",
@@ -293,6 +293,55 @@ export async function makeTimedTtsWav(
       "1",
       outWavPath,
     ]);
+
+    return timedSubtitles;
+  } finally {
+    if (fs.existsSync(tempDir)) {
+      for (const fileName of fs.readdirSync(tempDir)) {
+        fs.unlinkSync(path.join(tempDir, fileName));
+      }
+      fs.rmdirSync(tempDir);
+    }
+  }
+}
+
+export async function measureSubtitleTimings(
+  subtitles: SubtitleItem[],
+): Promise<SubtitleItem[]> {
+  const texts = subtitles.map((item) => item.text.trim()).filter(Boolean);
+
+  if (texts.length === 0) {
+    throw new Error("measureSubtitleTimings: 자막 문장이 없습니다.");
+  }
+
+  const tempDir = path.join(
+    process.cwd(),
+    "storage",
+    "tmp-subtitle-timings",
+    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  const timedSubtitles: SubtitleItem[] = [];
+  let cursor = 0;
+
+  try {
+    for (let i = 0; i < texts.length; i += 1) {
+      const text = texts[i];
+      const chunkMp3Path = path.join(tempDir, `chunk_${i + 1}.mp3`);
+      const chunkWavPath = path.join(tempDir, `chunk_${i + 1}.wav`);
+
+      await createBaseTtsMp3(text, chunkMp3Path);
+      await convertMp3ToWav(chunkMp3Path, chunkWavPath);
+
+      const duration = await probeAudioDuration(chunkWavPath);
+      timedSubtitles.push({
+        start: cursor,
+        end: cursor + duration,
+        text,
+      });
+      cursor += duration;
+    }
 
     return timedSubtitles;
   } finally {
