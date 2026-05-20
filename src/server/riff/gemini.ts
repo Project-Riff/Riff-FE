@@ -5,6 +5,7 @@ import {
   AnalysisResult,
   AnalysisSegment,
   AnalysisShotType,
+  SceneChunk,
   StoreInfo,
   SubtitleItem,
 } from "./types";
@@ -153,6 +154,37 @@ ${contextLines.join("\n")}
 - 위 매장 정보를 적극 반영하세요.
 - 매장명, 주소, 가게 특장점을 우선적으로 반영하세요.
 - 입력된 부제가 있으면 우선 참고하세요.
+`;
+}
+
+function buildSceneChunkPrompt(chunks: SceneChunk[]) {
+  if (chunks.length === 0) {
+    return "";
+  }
+
+  const lines = chunks.map(
+    (chunk) =>
+      `- ${chunk.id}: ${chunk.start.toFixed(1)}~${chunk.end.toFixed(1)} (${chunk.duration.toFixed(1)}초)`,
+  );
+
+  return `
+
+### 🎞 안정 구간 목록 (scene chunks)
+
+아래 구간들은 원본 영상에서 화면 전환이나 촬영 경계 기준으로 먼저 분리한 **상대적으로 안정적인 구간**입니다.
+
+${lines.join("\n")}
+
+[scene chunk 사용 규칙]
+- location, interior, food_detail, ending 후보는 **가능하면 하나의 scene chunk 안에서** 시작하고 끝나도록 우선 선택하세요.
+- 위 네 타입은 scene chunk를 **기본 기준선**으로 사용해 내부 전환이 적은 안정 구간을 먼저 찾으세요.
+- 위 네 타입은 서로 다른 scene chunk를 무리하게 길게 이어 붙여 **한 클립 안에 여러 장면이 섞이는 후보**를 만들지 마세요.
+- 다만 scene chunk 경계 근처에 더 좋은 후보가 있고, **같은 핵심 주제와 같은 촬영 흐름이 유지되며 화면 전환 느낌이 거의 없다면**, 그 후보는 예외적으로 사용할 수 있습니다.
+- 즉 scene chunk는 **우선적으로 지켜야 하는 안전 기준**이지만, 더 강한 후보를 놓치지 않기 위해 절대적인 기계 규칙처럼만 사용하지는 마세요.
+- **단, food_hook은 예외입니다.**
+- food_hook은 원본 영상 전체에서 가장 강한 순간을 우선 찾아도 됩니다.
+- food_hook은 scene chunk 경계 근처의 강한 순간을 써도 되지만, **클립 자체는 여전히 안정적이어야 하며 하나의 핵심 주제만 유지되어야 합니다.**
+- 즉 food_hook은 chunk 경계를 참고는 하되, 가장 강한 훅 순간을 놓치지 않는 것을 우선하세요.
 `;
 }
 
@@ -378,6 +410,12 @@ type CandidateSelectionLog = {
   shotType: AnalysisShotType;
   label: string;
   reason: string;
+  reasonKo?: string;
+  detailRole?: FoodDetailRole;
+  baseScore?: number;
+  diversityAdjustment?: number;
+  totalScore?: number;
+  comparedTo?: string[];
 };
 
 type CutParseIssue = {
@@ -422,6 +460,10 @@ type CutSelectionResult = {
   }>;
   selectionMode: "normal" | "fallback";
 };
+
+const TARGET_SELECTED_TOTAL_DURATION = 22.2;
+const LENGTH_RECOVERY_MARGIN = 2.4;
+const MAX_EXTRA_RECOVERY_CUTS = 2;
 
 const ALLOWED_SHOT_TYPES: AnalysisShotType[] = [
   "food_hook",
@@ -630,6 +672,115 @@ function scoreCutCandidate(row: ParsedCutRow) {
   }
 
   return score;
+}
+
+function mapRemovalReasonKo(reason: string) {
+  switch (reason) {
+    case "start<0":
+      return "시작 시간이 0초보다 작아서 제외되었습니다.";
+    case "invalid_range":
+      return "시작/종료 시간이 올바르지 않아 제외되었습니다.";
+    case "end>videoDuration":
+      return "클립 종료 시간이 원본 영상 길이를 넘어가서 제외되었습니다.";
+    case "too_short":
+      return "클립 길이가 너무 짧아서 제외되었습니다.";
+    case "too_long":
+      return "클립 길이가 너무 길어서 제외되었습니다.";
+    case "duplicate_candidate":
+      return "비슷한 시간대나 같은 장면 계열의 후보가 이미 있어 중복 후보로 제외되었습니다.";
+    case "not_selected":
+      return "최종 선택 점수와 구조 우선순위에서 다른 후보에 밀려 제외되었습니다.";
+    default:
+      return "선택 기준에 맞지 않아 제외되었습니다.";
+  }
+}
+
+function buildUnselectedReason(
+  row: ParsedCutRow,
+  selected: ParsedCutRow[],
+) {
+  const baseScore = Number(scoreCutCandidate(row).toFixed(3));
+  const diversityAdjustment = Number(
+    getDiversityAdjustment(row, selected).toFixed(3),
+  );
+  const totalScore = Number((baseScore + diversityAdjustment).toFixed(3));
+  const detailRole =
+    row.shotType === "food_detail" ? inferFoodDetailRole(row.label) : undefined;
+
+  const sameTypeSelected = selected.filter(
+    (picked) => picked.shotType === row.shotType,
+  );
+  const sameSceneFamilySelected = selected.filter((picked) =>
+    isSameSceneFamily(row, picked),
+  );
+  const higherScoredSameType = sameTypeSelected
+    .map((picked) => ({
+      label: picked.label,
+      totalScore: Number(
+        (
+          scoreCutCandidate(picked) + getDiversityAdjustment(picked, selected)
+        ).toFixed(3),
+      ),
+    }))
+    .filter((picked) => picked.totalScore >= totalScore)
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, 2);
+
+  const comparedTo = [
+    ...sameSceneFamilySelected.map((picked) => picked.label),
+    ...higherScoredSameType.map((picked) => picked.label),
+  ].filter((label, index, array) => array.indexOf(label) === index);
+
+  const notes: string[] = [];
+
+  if (sameSceneFamilySelected.length > 0) {
+    notes.push("같은 장면 계열(scene family) 후보가 이미 선택되어 중복 방지 기준에 걸렸습니다.");
+  }
+
+  if (row.shotType === "food_hook" && sameTypeSelected.length >= 2) {
+    notes.push("도입 훅 슬롯은 제한적이라 더 점수가 높은 food_hook 후보가 우선 선택되었습니다.");
+  }
+
+  if (row.shotType === "location" && sameTypeSelected.length >= 1) {
+    notes.push("공간 정보(location) 슬롯은 제한적이라 더 적합한 위치 컷이 먼저 선택되었습니다.");
+  }
+
+  if (row.shotType === "interior" && sameTypeSelected.length >= 1) {
+    notes.push("공간 정보(interior) 슬롯은 제한적이라 더 적합한 내부 컷이 먼저 선택되었습니다.");
+  }
+
+  if (
+    row.shotType === "food_detail" &&
+    detailRole === "display" &&
+    selected.some(
+      (picked) =>
+        picked.shotType === "food_detail" &&
+        inferFoodDetailRole(picked.label) === "display",
+    )
+  ) {
+    notes.push("대표 display 컷이 이미 확보되어 추가 display 후보로서 우선순위가 낮아졌습니다.");
+  }
+
+  if (higherScoredSameType.length > 0) {
+    notes.push(
+      `같은 타입 안에서 더 높은 점수를 받은 후보가 있어 밀렸습니다 (내 점수 ${totalScore.toFixed(2)}).`,
+    );
+  }
+
+  if (notes.length === 0) {
+    notes.push(
+      `최종 구조 슬롯과 점수 비교에서 다른 후보가 우선 선택되었습니다 (내 점수 ${totalScore.toFixed(2)}).`,
+    );
+  }
+
+  return {
+    reasonKo: notes.join(" "),
+    detailRole,
+    baseScore,
+    diversityAdjustment,
+    totalScore,
+    comparedTo,
+  };
 }
 
 function getDiversityAdjustment(
@@ -886,6 +1037,30 @@ function pickBestCandidates(
   const remaining = [...rows];
   const selectionTrace: CutSelectionResult["selectionTrace"] = [];
 
+  const getSelectedDuration = () =>
+    selected.reduce((sum, row) => sum + (row.end - row.start), 0);
+
+  const needsLengthRecovery = () =>
+    getSelectedDuration() < TARGET_SELECTED_TOTAL_DURATION;
+
+  const getAllowedMaxCount = () =>
+    needsLengthRecovery() ? maxCount + MAX_EXTRA_RECOVERY_CUTS : maxCount;
+
+  const getLengthRecoveryBoost = (candidate: ParsedCutRow) => {
+    const shortage = TARGET_SELECTED_TOTAL_DURATION - getSelectedDuration();
+
+    if (shortage <= 0) {
+      return 0;
+    }
+
+    const duration = candidate.end - candidate.start;
+    const longerThanBaseline = Math.max(0, duration - 2.4);
+    const shortageWeight =
+      shortage >= LENGTH_RECOVERY_MARGIN ? 0.3 : 0.18;
+
+    return longerThanBaseline * shortageWeight;
+  };
+
   const getSelectedDisplays = () =>
     selected.filter(
       (row) =>
@@ -943,7 +1118,8 @@ function pickBestCandidates(
 
       const baseScore = scoreCutCandidate(row);
       const diversityAdjustment = getDiversityAdjustment(row, selected);
-      const totalScore = baseScore + diversityAdjustment;
+      const lengthRecoveryBoost = getLengthRecoveryBoost(row);
+      const totalScore = baseScore + diversityAdjustment + lengthRecoveryBoost;
 
       if (totalScore > bestScore) {
         bestScore = totalScore;
@@ -979,8 +1155,18 @@ function pickBestCandidates(
     return row;
   };
 
-  const isDistinctEnough = (candidate: ParsedCutRow) => {
-    if (getSameSceneFamilyFoodDetailCount(candidate) >= 1) {
+  const isDistinctEnough = (
+    candidate: ParsedCutRow,
+    allowLengthRecovery = false,
+  ) => {
+    if (
+      getSameSceneFamilyFoodDetailCount(candidate) >= 1 &&
+      !(
+        allowLengthRecovery &&
+        needsLengthRecovery() &&
+        candidate.shotType === "food_detail"
+      )
+    ) {
       return false;
     }
 
@@ -990,6 +1176,17 @@ function pickBestCandidates(
       }
 
       if (isSameSceneFamily(candidate, picked)) {
+        if (
+          allowLengthRecovery &&
+          needsLengthRecovery() &&
+          candidate.shotType === "food_detail" &&
+          picked.shotType === "food_detail" &&
+          inferFoodDetailRole(candidate.label) !== inferFoodDetailRole(picked.label) &&
+          getKeywordOverlapScore(candidate.label, picked.label) < 0.35
+        ) {
+          return true;
+        }
+
         if (candidate.shotType === picked.shotType) {
           return false;
         }
@@ -1119,20 +1316,21 @@ function pickBestCandidates(
   ];
 
   for (const entry of preferredFillOrder) {
-    while (selected.length < maxCount) {
+    while (selected.length < getAllowedMaxCount()) {
       let bestIndex = -1;
       let bestScore = Number.NEGATIVE_INFINITY;
       let bestBaseScore = 0;
       let bestDiversityAdjustment = 0;
 
       remaining.forEach((row, index) => {
-        if (!entry.predicate(row) || !isDistinctEnough(row)) {
+        if (!entry.predicate(row) || !isDistinctEnough(row, true)) {
           return;
         }
 
         const baseScore = scoreCutCandidate(row);
         const diversityAdjustment = getDiversityAdjustment(row, selected);
-        const totalScore = baseScore + diversityAdjustment;
+        const lengthRecoveryBoost = getLengthRecoveryBoost(row);
+        const totalScore = baseScore + diversityAdjustment + lengthRecoveryBoost;
 
         if (totalScore > bestScore) {
           bestScore = totalScore;
@@ -1168,7 +1366,7 @@ function pickBestCandidates(
     }
   }
 
-  if (selected.length < minCount) {
+  if (selected.length < minCount || needsLengthRecovery()) {
     const fallbackPriority = [
       (row: ParsedCutRow) =>
         row.shotType === "food_detail" &&
@@ -1188,11 +1386,14 @@ function pickBestCandidates(
 
     for (const predicate of fallbackPriority) {
       for (const row of remaining) {
-        if (selected.length >= minCount) {
+        if (
+          selected.length >= getAllowedMaxCount() ||
+          (selected.length >= minCount && !needsLengthRecovery())
+        ) {
           break;
         }
 
-        if (!predicate(row) || !isDistinctEnough(row)) {
+        if (!predicate(row) || !isDistinctEnough(row, true)) {
           continue;
         }
 
@@ -1223,7 +1424,10 @@ function pickBestCandidates(
         });
       }
 
-      if (selected.length >= minCount) {
+      if (
+        selected.length >= getAllowedMaxCount() ||
+        (selected.length >= minCount && !needsLengthRecovery())
+      ) {
         break;
       }
     }
@@ -1257,12 +1461,26 @@ function buildCutSelectionResult(
     .map((row) => ({
       ...row,
       reason: "not_selected",
+      ...buildUnselectedReason(row, reordered),
     }));
+
+  const localizedValidationRemoved = validation.removed.map((row) => ({
+    ...row,
+    reasonKo: mapRemovalReasonKo(row.reason),
+  }));
+  const localizedDedupeRemoved = dedupe.removed.map((row) => ({
+    ...row,
+    reasonKo: mapRemovalReasonKo(row.reason),
+  }));
 
   return {
     candidates: dedupe.deduped,
     selected: reordered,
-    removed: [...validation.removed, ...dedupe.removed, ...unselected],
+    removed: [
+      ...localizedValidationRemoved,
+      ...localizedDedupeRemoved,
+      ...unselected,
+    ],
     parseIssues,
     candidateDiagnostics: dedupe.deduped.map((row) => ({
       start: row.start,
@@ -1570,8 +1788,9 @@ async function requestCutsWithGemini(
   storeInfo?: StoreInfo,
   jobId?: string,
   videoDuration?: number,
+  sceneChunks: SceneChunk[] = [],
 ) {
-  const prompt = loadPrompt("shortform-cuts.txt", storeInfo);
+  const prompt = `${loadPrompt("shortform-cuts.txt", storeInfo)}${buildSceneChunkPrompt(sceneChunks)}`;
   const uploaded = await uploadVideoAndWaitUntilActive(ai, videoPath);
 
   console.log("[Gemini] 컷 분석 요청");
@@ -1621,6 +1840,7 @@ async function requestCutsWithGemini(
       JSON.stringify(
         {
           candidates: selection.candidates,
+          sceneChunks,
           candidateDiagnostics: selection.candidateDiagnostics,
           selected: segments,
           selectionTrace: selection.selectionTrace,
@@ -1689,6 +1909,7 @@ export async function analyzeVideoWithGemini(
   storeInfo?: StoreInfo,
   jobId?: string,
   videoDuration?: number,
+  sceneChunks: SceneChunk[] = [],
 ): Promise<AnalysisResult> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
@@ -1708,6 +1929,7 @@ export async function analyzeVideoWithGemini(
     storeInfo,
     jobId,
     videoDuration,
+    sceneChunks,
   );
   return requestScriptWithGemini(ai, segments, storeInfo);
 }

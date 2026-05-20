@@ -52,6 +52,13 @@ export type AnalysisSegment = {
   shotType: AnalysisShotType;
 };
 
+export type SceneChunk = {
+  id: string;
+  start: number;
+  end: number;
+  duration: number;
+};
+
 export type SubtitleItem = {
   start: number;
   end: number;
@@ -81,6 +88,7 @@ export interface JobArtifacts {
   sourceOriginalPath?: string;
   compressedPath?: string;
   sourceUrl?: string;
+  sceneChunksPath?: string;
   analysisPath?: string;
   subtitlePath?: string;
   clipPaths?: string[];

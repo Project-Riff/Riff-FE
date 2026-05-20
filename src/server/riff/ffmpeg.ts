@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import { AnalysisSegment } from "./types";
+import { AnalysisSegment, SceneChunk } from "./types";
 import { SfxCue } from "./sfx";
 
 type ProbeResult = {
@@ -181,6 +181,41 @@ function runCommandCapture(command: string, args: string[]) {
   });
 }
 
+function runCommandCaptureCombined(command: string, args: string[]) {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(`${stdout}\n${stderr}`.trim());
+        return;
+      }
+
+      reject(
+        new Error(
+          `${command} 실행 실패 (code=${code})\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+        ),
+      );
+    });
+  });
+}
+
 function ensureParentDir(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -213,6 +248,84 @@ export async function compressVideoForAnalysis(
     "128k",
     outputPath,
   ]);
+}
+
+export async function detectStableSceneChunks(
+  videoPath: string,
+  options: {
+    sceneThreshold?: number;
+    minChunkDuration?: number;
+  } = {},
+): Promise<SceneChunk[]> {
+  const { sceneThreshold = 0.24, minChunkDuration = 2.2 } = options;
+  const meta = await probeVideo(videoPath);
+  const duration = meta.duration;
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`scene chunk 분석 실패: ${videoPath}`);
+  }
+
+  const rawOutput = await runCommandCaptureCombined("ffmpeg", [
+    "-hide_banner",
+    "-i",
+    videoPath,
+    "-filter:v",
+    `select='gt(scene,${sceneThreshold})',metadata=print:file=-`,
+    "-an",
+    "-f",
+    "null",
+    "-",
+  ]);
+
+  const matches = Array.from(
+    rawOutput.matchAll(/pts_time:([0-9]+(?:\.[0-9]+)?)/g),
+  );
+  const sceneTimes = Array.from(
+    new Set(
+      matches
+        .map((match) => Number(match[1]))
+        .filter(
+          (time) =>
+            Number.isFinite(time) &&
+            time > 0.2 &&
+            time < duration - 0.2,
+        )
+        .map((time) => Number(time.toFixed(3))),
+    ),
+  ).sort((a, b) => a - b);
+
+  const boundaries = [0, ...sceneTimes, duration];
+  const chunks: SceneChunk[] = [];
+
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const start = Number(boundaries[index].toFixed(3));
+    const end = Number(boundaries[index + 1].toFixed(3));
+    const chunkDuration = Number((end - start).toFixed(3));
+
+    if (chunkDuration < minChunkDuration) {
+      continue;
+    }
+
+    chunks.push({
+      id: `c${String(chunks.length + 1).padStart(2, "0")}`,
+      start,
+      end,
+      duration: chunkDuration,
+    });
+  }
+
+  if (chunks.length === 0) {
+    return [
+      {
+        id: "c01",
+        start: 0,
+        end: Number(duration.toFixed(3)),
+        duration: Number(duration.toFixed(3)),
+      },
+    ];
+  }
+
+  return chunks;
 }
 
 function escapeSubtitlePathForFfmpeg(filePath: string) {

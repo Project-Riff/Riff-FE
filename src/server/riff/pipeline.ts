@@ -3,6 +3,7 @@ import { getJob, patchJob, pushJobLog } from "./job-store";
 import { ensureJobDirs } from "./local-paths";
 import {
   probeVideo,
+  detectStableSceneChunks,
   cutSegments,
   normalizeClipsForTimeline,
   concatClips,
@@ -74,6 +75,7 @@ function shouldSkipBody(resumeFrom?: ResumeFrom) {
 
 function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
   const filesToDelete = [
+    paths.sceneChunksPath,
     paths.analysisPath,
     paths.subtitlePath,
     paths.ttsPath,
@@ -145,6 +147,7 @@ export async function runRealPipeline(jobId: string) {
     }
 
     let sourceMeta: Awaited<ReturnType<typeof probeVideo>> | undefined;
+    let sceneChunks: Awaited<ReturnType<typeof detectStableSceneChunks>> = [];
 
     if (
       resumeFrom !== "body" &&
@@ -179,6 +182,40 @@ export async function runRealPipeline(jobId: string) {
         "probing",
         15,
         `길이 ${sourceMeta.duration.toFixed(1)}초 확인`,
+      );
+
+      await patchJob(jobId, {
+        stage: "probing",
+        progress: 18,
+        message: "안정 구간(scene chunk) 분석 중",
+        error: undefined,
+      });
+
+      await pushJobLog(jobId, "probing", 18, "안정 구간(scene chunk) 분석 중");
+
+      sceneChunks = await detectStableSceneChunks(job.sourcePath);
+
+      fs.writeFileSync(
+        paths.sceneChunksPath,
+        JSON.stringify(sceneChunks, null, 2),
+        "utf-8",
+      );
+
+      await patchJob(jobId, {
+        stage: "probing",
+        progress: 19,
+        message: `안정 구간 ${sceneChunks.length}개 추출`,
+        artifacts: {
+          sceneChunksPath: paths.sceneChunksPath,
+        },
+        error: undefined,
+      });
+
+      await pushJobLog(
+        jobId,
+        "probing",
+        19,
+        `안정 구간 ${sceneChunks.length}개 추출`,
       );
     }
 
@@ -233,6 +270,7 @@ export async function runRealPipeline(jobId: string) {
         job.storeInfo,
         jobId,
         sourceMeta?.duration,
+        sceneChunks,
       );
       regeneratedAnalysis = true;
 
