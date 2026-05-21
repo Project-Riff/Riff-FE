@@ -392,6 +392,7 @@ type ParsedCutRow = {
   end: number;
   shotType: AnalysisShotType;
   label: string;
+  detailRole?: FoodDetailRole;
   hookStrength: number;
   visualClarity: number;
   shortformImpact: number;
@@ -478,14 +479,38 @@ function parseShotType(value: string): AnalysisShotType | null {
   return ALLOWED_SHOT_TYPES.find((type) => type === normalized) ?? null;
 }
 
-function parseFivePointScore(value: string | undefined, fallback = 3) {
+function parseTenPointScore(
+  value: string | undefined,
+  fallback = 6,
+  originalScale: 5 | 10 = 10,
+) {
   const parsed = Number((value ?? "").trim());
 
   if (!Number.isFinite(parsed)) {
     return fallback;
   }
 
-  return Math.max(1, Math.min(5, Math.round(parsed)));
+  if (originalScale === 5) {
+    return Math.max(1, Math.min(10, Math.round(parsed * 2)));
+  }
+
+  return Math.max(1, Math.min(10, Math.round(parsed)));
+}
+
+function parseFoodDetailRole(value: string | undefined): FoodDetailRole | undefined {
+  const normalized = cleanScript(value ?? "").toLowerCase();
+
+  if (
+    normalized === "action" ||
+    normalized === "display" ||
+    normalized === "serving" ||
+    normalized === "eating" ||
+    normalized === "closeup"
+  ) {
+    return normalized;
+  }
+
+  return undefined;
 }
 
 function extractKeywords(label: string) {
@@ -532,9 +557,9 @@ function isSameSceneFamily(a: ParsedCutRow, b: ParsedCutRow) {
   const endGap = Math.abs(a.end - b.end);
   const keywordOverlap = getKeywordOverlapScore(a.label, b.label);
   const aRole =
-    a.shotType === "food_detail" ? inferFoodDetailRole(a.label) : undefined;
+    a.shotType === "food_detail" ? inferFoodDetailRole(a) : undefined;
   const bRole =
-    b.shotType === "food_detail" ? inferFoodDetailRole(b.label) : undefined;
+    b.shotType === "food_detail" ? inferFoodDetailRole(b) : undefined;
   const sameFoodRole =
     a.shotType === "food_detail" &&
     b.shotType === "food_detail" &&
@@ -577,8 +602,12 @@ function isSameSceneFamily(a: ParsedCutRow, b: ParsedCutRow) {
   return false;
 }
 
-function inferFoodDetailRole(label: string): FoodDetailRole {
-  const normalized = cleanScript(label).toLowerCase();
+function inferFoodDetailRole(input: string | ParsedCutRow): FoodDetailRole {
+  if (typeof input !== "string" && input.detailRole) {
+    return input.detailRole;
+  }
+
+  const normalized = cleanScript(typeof input === "string" ? input : input.label).toLowerCase();
 
   if (
     /(먹는|먹자마자|한입|한 입|표정|반응|즐기는|손님들이.*즐기|대화하는)/.test(
@@ -628,7 +657,7 @@ function isBridgeCandidate(row: ParsedCutRow) {
   }
 
   if (row.shotType === "food_detail") {
-    const role = inferFoodDetailRole(row.label);
+    const role = inferFoodDetailRole(row);
     return role === "serving" || role === "display";
   }
 
@@ -644,7 +673,7 @@ function scoreCutCandidate(row: ParsedCutRow) {
   } else if (row.shotType === "ending") {
     score = -Math.abs(duration - 2.8) + 0.1;
   } else if (row.shotType === "food_detail") {
-    const role = inferFoodDetailRole(row.label);
+    const role = inferFoodDetailRole(row);
 
     if (role === "action" || role === "eating") {
       score = -Math.abs(duration - 2.6) + 0.08;
@@ -657,9 +686,12 @@ function scoreCutCandidate(row: ParsedCutRow) {
     score = -Math.abs(duration - 2.9);
   }
 
-  const hookBonus = (row.hookStrength - 3) * 0.18;
-  const clarityBonus = (row.visualClarity - 3) * 0.16;
-  const impactBonus = (row.shortformImpact - 3) * 0.18;
+  const centeredHook = (row.hookStrength - 5.5) / 4.5;
+  const centeredClarity = (row.visualClarity - 5.5) / 4.5;
+  const centeredImpact = (row.shortformImpact - 5.5) / 4.5;
+  const hookBonus = centeredHook * 0.4;
+  const clarityBonus = centeredClarity * 0.32;
+  const impactBonus = centeredImpact * 0.4;
 
   if (row.shotType === "food_hook") {
     score += hookBonus + clarityBonus + impactBonus;
@@ -705,7 +737,7 @@ function buildUnselectedReason(
   );
   const totalScore = Number((baseScore + diversityAdjustment).toFixed(3));
   const detailRole =
-    row.shotType === "food_detail" ? inferFoodDetailRole(row.label) : undefined;
+    row.shotType === "food_detail" ? inferFoodDetailRole(row) : undefined;
 
   const sameTypeSelected = selected.filter(
     (picked) => picked.shotType === row.shotType,
@@ -755,7 +787,7 @@ function buildUnselectedReason(
     selected.some(
       (picked) =>
         picked.shotType === "food_detail" &&
-        inferFoodDetailRole(picked.label) === "display",
+        inferFoodDetailRole(picked) === "display",
     )
   ) {
     notes.push("대표 display 컷이 이미 확보되어 추가 display 후보로서 우선순위가 낮아졌습니다.");
@@ -803,14 +835,14 @@ function getDiversityAdjustment(
   }
 
   if (candidate.shotType === "food_detail") {
-    const candidateRole = inferFoodDetailRole(candidate.label);
+    const candidateRole = inferFoodDetailRole(candidate);
 
     if (
       candidateRole === "display" &&
       !selected.some(
         (picked) =>
           picked.shotType === "food_detail" &&
-          inferFoodDetailRole(picked.label) === "display",
+          inferFoodDetailRole(picked) === "display",
       )
     ) {
       adjustment += 0.18;
@@ -825,7 +857,7 @@ function getDiversityAdjustment(
         (picked) =>
           picked.shotType === "food_detail" &&
           (getKeywordOverlapScore(candidate.label, picked.label) >= 0.4 ||
-            inferFoodDetailRole(picked.label) === candidateRole),
+            inferFoodDetailRole(picked) === candidateRole),
       )
     ) {
       adjustment -= 0.35;
@@ -917,7 +949,7 @@ function dedupeCutRows(rows: ParsedCutRow[]) {
       const sameFoodRoleSimilarLabel =
         picked.shotType === "food_detail" &&
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(picked.label) === inferFoodDetailRole(row.label) &&
+        inferFoodDetailRole(picked) === inferFoodDetailRole(row) &&
         getKeywordOverlapScore(picked.label, row.label) >= 0.45;
       const sameSceneFamily =
         picked.shotType === row.shotType &&
@@ -1065,7 +1097,7 @@ function pickBestCandidates(
     selected.filter(
       (row) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "display",
+        inferFoodDetailRole(row) === "display",
     );
 
   const getSameSceneFamilyFoodDetailCount = (candidate: ParsedCutRow) => {
@@ -1082,7 +1114,7 @@ function pickBestCandidates(
   const isDistinctDisplayEnough = (candidate: ParsedCutRow) => {
     if (
       candidate.shotType !== "food_detail" ||
-      inferFoodDetailRole(candidate.label) !== "display"
+      inferFoodDetailRole(candidate) !== "display"
     ) {
       return false;
     }
@@ -1100,6 +1132,18 @@ function pickBestCandidates(
 
       return getKeywordOverlapScore(candidate.label, picked.label) < 0.35;
     });
+  };
+
+  const canReuseHookAsAppeal = (candidate: ParsedCutRow) => {
+    if (candidate.shotType !== "food_hook") {
+      return false;
+    }
+
+    if (candidate.visualClarity < 4 || candidate.shortformImpact < 4) {
+      return false;
+    }
+
+    return isDistinctEnough(candidate);
   };
 
   const takeBest = (
@@ -1143,7 +1187,7 @@ function pickBestCandidates(
       label: row.label,
       detailRole:
         row.shotType === "food_detail"
-          ? inferFoodDetailRole(row.label)
+          ? inferFoodDetailRole(row)
           : undefined,
       baseScore: Number(bestBaseScore.toFixed(3)),
       diversityAdjustment: Number(bestDiversityAdjustment.toFixed(3)),
@@ -1181,7 +1225,7 @@ function pickBestCandidates(
           needsLengthRecovery() &&
           candidate.shotType === "food_detail" &&
           picked.shotType === "food_detail" &&
-          inferFoodDetailRole(candidate.label) !== inferFoodDetailRole(picked.label) &&
+          inferFoodDetailRole(candidate) !== inferFoodDetailRole(picked) &&
           getKeywordOverlapScore(candidate.label, picked.label) < 0.35
         ) {
           return true;
@@ -1209,7 +1253,7 @@ function pickBestCandidates(
       if (
         candidate.shotType === "food_detail" &&
         picked.shotType === "food_detail" &&
-        inferFoodDetailRole(candidate.label) === inferFoodDetailRole(picked.label) &&
+        inferFoodDetailRole(candidate) === inferFoodDetailRole(picked) &&
         getKeywordOverlapScore(candidate.label, picked.label) >= 0.45
       ) {
         return false;
@@ -1227,7 +1271,7 @@ function pickBestCandidates(
     "food_variety_display",
     (row) =>
       row.shotType === "food_detail" &&
-      inferFoodDetailRole(row.label) === "display" &&
+      inferFoodDetailRole(row) === "display" &&
       isDistinctEnough(row),
   );
   takeBest(
@@ -1245,11 +1289,14 @@ function pickBestCandidates(
   takeBest(
     "food_appeal_1",
     (row) =>
-      row.shotType === "food_detail" &&
-      ["action", "closeup", "serving", "eating"].includes(
-        inferFoodDetailRole(row.label),
-      ) &&
-      isDistinctEnough(row),
+      (
+        row.shotType === "food_detail" &&
+        ["action", "closeup", "serving", "eating"].includes(
+          inferFoodDetailRole(row),
+        ) &&
+        isDistinctEnough(row)
+      ) ||
+      canReuseHookAsAppeal(row),
   );
   takeBest(
     "food_variety_display_2",
@@ -1258,11 +1305,14 @@ function pickBestCandidates(
   takeBest(
     "food_appeal_2",
     (row) =>
-      row.shotType === "food_detail" &&
-      ["action", "closeup", "eating", "serving"].includes(
-        inferFoodDetailRole(row.label),
-      ) &&
-      isDistinctEnough(row),
+      (
+        row.shotType === "food_detail" &&
+        ["action", "closeup", "eating", "serving"].includes(
+          inferFoodDetailRole(row),
+        ) &&
+        isDistinctEnough(row)
+      ) ||
+      canReuseHookAsAppeal(row),
   );
 
   const preferredFillOrder: Array<{
@@ -1285,25 +1335,28 @@ function pickBestCandidates(
       name: "food_serving",
       predicate: (row) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "serving",
+        inferFoodDetailRole(row) === "serving",
     },
     {
       name: "food_action",
       predicate: (row) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "action",
+        inferFoodDetailRole(row) === "action",
     },
     {
       name: "food_eating",
       predicate: (row) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "eating",
+        inferFoodDetailRole(row) === "eating",
     },
     {
       name: "food_closeup",
       predicate: (row) =>
-        row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "closeup",
+        (
+          row.shotType === "food_detail" &&
+          inferFoodDetailRole(row) === "closeup"
+        ) ||
+        canReuseHookAsAppeal(row),
     },
     {
       name: "food_display",
@@ -1354,7 +1407,7 @@ function pickBestCandidates(
         label: row.label,
         detailRole:
           row.shotType === "food_detail"
-            ? inferFoodDetailRole(row.label)
+            ? inferFoodDetailRole(row)
             : undefined,
         baseScore: Number(bestBaseScore.toFixed(3)),
         diversityAdjustment: Number(bestDiversityAdjustment.toFixed(3)),
@@ -1370,16 +1423,16 @@ function pickBestCandidates(
     const fallbackPriority = [
       (row: ParsedCutRow) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "display",
+        inferFoodDetailRole(row) === "display",
       (row: ParsedCutRow) => row.shotType === "food_hook",
       (row: ParsedCutRow) => row.shotType === "interior",
       (row: ParsedCutRow) => row.shotType === "location",
       (row: ParsedCutRow) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "eating",
+        inferFoodDetailRole(row) === "eating",
       (row: ParsedCutRow) =>
         row.shotType === "food_detail" &&
-        inferFoodDetailRole(row.label) === "action",
+        inferFoodDetailRole(row) === "action",
       (row: ParsedCutRow) => row.shotType === "food_detail",
       (row: ParsedCutRow) => true,
     ];
@@ -1406,7 +1459,7 @@ function pickBestCandidates(
           label: row.label,
           detailRole:
             row.shotType === "food_detail"
-              ? inferFoodDetailRole(row.label)
+              ? inferFoodDetailRole(row)
               : undefined,
           baseScore: Number(scoreCutCandidate(row).toFixed(3)),
           diversityAdjustment: Number(
@@ -1489,7 +1542,7 @@ function buildCutSelectionResult(
       label: row.label,
       detailRole:
         row.shotType === "food_detail"
-          ? inferFoodDetailRole(row.label)
+          ? inferFoodDetailRole(row)
           : undefined,
       baseScore: Number(scoreCutCandidate(row).toFixed(3)),
       isBridgeCandidate: isBridgeCandidate(row),
@@ -1997,6 +2050,35 @@ export async function analyzeVideoWithGemini(
     sceneChunks,
   );
   return requestScriptWithGemini(ai, segments, storeInfo);
+}
+
+export async function analyzeCutsWithGemini(
+  videoPath: string,
+  storeInfo?: StoreInfo,
+  jobId?: string,
+  videoDuration?: number,
+  sceneChunks: SceneChunk[] = [],
+): Promise<AnalysisSegment[]> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY가 없습니다.");
+  }
+
+  if (!fs.existsSync(videoPath)) {
+    throw new Error(`영상 파일이 없습니다: ${videoPath}`);
+  }
+
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+
+  return requestCutsWithGemini(
+    ai,
+    videoPath,
+    storeInfo,
+    jobId,
+    videoDuration,
+    sceneChunks,
+  );
 }
 
 export async function regenerateScriptWithGemini(

@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { SubtitleItem } from "./types";
 
-const TARGET_AUDIO_DURATION = 19.5;
+const DEFAULT_TARGET_AUDIO_DURATION = 19.5;
 // ElevenLabs 설정
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID =
@@ -11,6 +11,29 @@ const ELEVENLABS_VOICE_ID =
 const ELEVENLABS_MODEL_ID =
   process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 const EDGE_VOICE = "ko-KR-SunHiNeural"; // Edge TTS 목소리
+type ElevenLabsTimestampResponse = {
+  audio_base64: string;
+  alignment?: {
+    characters: string[];
+    character_start_times_seconds: number[];
+    character_end_times_seconds?: number[];
+  };
+  normalized_alignment?: {
+    characters: string[];
+    character_start_times_seconds: number[];
+    character_end_times_seconds?: number[];
+  };
+};
+
+const elevenLabsTimestampCache = new Map<
+  string,
+  {
+    audioBuffer: Buffer;
+    alignment: NonNullable<
+      ElevenLabsTimestampResponse["alignment"] | ElevenLabsTimestampResponse["normalized_alignment"]
+    >;
+  }
+>();
 
 function run(cmd: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
@@ -141,6 +164,50 @@ async function fetchElevenLabsAudio(text: string, outPath: string) {
   fs.writeFileSync(outPath, Buffer.from(arrayBuffer));
 }
 
+async function fetchElevenLabsAudioWithTimestamps(text: string) {
+  if (!ELEVENLABS_API_KEY) {
+    throw new Error(
+      "ELEVENLABS_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인해주세요.",
+    );
+  }
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/with-timestamps?output_format=mp3_44100_128`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVENLABS_API_KEY,
+      },
+      body: JSON.stringify({
+        text,
+        model_id: ELEVENLABS_MODEL_ID,
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ElevenLabs with-timestamps API Error (${response.status}): ${errorText}`);
+  }
+
+  const json = (await response.json()) as ElevenLabsTimestampResponse;
+  const alignment = json.alignment ?? json.normalized_alignment;
+
+  if (!alignment?.characters?.length || !alignment.character_start_times_seconds?.length) {
+    throw new Error("ElevenLabs with-timestamps 응답에 alignment 정보가 없습니다.");
+  }
+
+  return {
+    audioBuffer: Buffer.from(json.audio_base64, "base64"),
+    alignment,
+  };
+}
+
 /**
  * Edge TTS (Python)를 사용하여 오디오를 생성합니다. (무료)
  */
@@ -196,6 +263,13 @@ async function fetchMacOsSayAudio(text: string, outPath: string) {
 }
 
 async function createBaseTtsMp3(text: string, outPath: string) {
+  const cached = elevenLabsTimestampCache.get(text.trim());
+
+  if (cached) {
+    fs.writeFileSync(outPath, cached.audioBuffer);
+    return;
+  }
+
   if (ELEVENLABS_API_KEY) {
     try {
       await fetchElevenLabsAudio(text, outPath);
@@ -307,11 +381,65 @@ export async function makeTimedTtsWav(
 
 export async function measureSubtitleTimings(
   subtitles: SubtitleItem[],
+  narration?: string,
 ): Promise<SubtitleItem[]> {
   const texts = subtitles.map((item) => item.text.trim()).filter(Boolean);
 
   if (texts.length === 0) {
     throw new Error("measureSubtitleTimings: 자막 문장이 없습니다.");
+  }
+
+  if (ELEVENLABS_API_KEY && narration?.trim()) {
+    try {
+      const trimmedNarration = narration.trim();
+      const { audioBuffer, alignment } = await fetchElevenLabsAudioWithTimestamps(trimmedNarration);
+      elevenLabsTimestampCache.set(trimmedNarration, { audioBuffer, alignment });
+
+      const starts = alignment.character_start_times_seconds;
+      const ends = alignment.character_end_times_seconds ?? [];
+      const fullDuration = ends[ends.length - 1] ?? starts[starts.length - 1] ?? 0;
+
+      const timedSubtitles: SubtitleItem[] = [];
+      let searchCursor = 0;
+
+      for (let i = 0; i < texts.length; i += 1) {
+        const text = texts[i];
+        const foundIndex = trimmedNarration.indexOf(text, searchCursor);
+
+        if (foundIndex === -1) {
+          throw new Error(`자막 조각을 narration에서 찾지 못했습니다: ${text}`);
+        }
+
+        const start = starts[foundIndex] ?? 0;
+        let end = fullDuration;
+
+        if (i < texts.length - 1) {
+          const nextText = texts[i + 1];
+          const nextIndex = trimmedNarration.indexOf(nextText, foundIndex + text.length);
+
+          if (nextIndex === -1) {
+            throw new Error(`다음 자막 조각을 narration에서 찾지 못했습니다: ${nextText}`);
+          }
+
+          end = starts[nextIndex] ?? fullDuration;
+        }
+
+        timedSubtitles.push({
+          start,
+          end,
+          text,
+        });
+
+        searchCursor = foundIndex + text.length;
+      }
+
+      return timedSubtitles;
+    } catch (error) {
+      console.warn(
+        `[TTS] ElevenLabs 문자 타이밍 추출 실패, 기존 추정 방식으로 fallback 합니다: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      elevenLabsTimestampCache.delete(narration.trim());
+    }
   }
 
   const tempDir = path.join(
@@ -354,7 +482,11 @@ export async function measureSubtitleTimings(
   }
 }
 
-export async function makeTtsWav(text: string, outWavPath: string) {
+export async function makeTtsWav(
+  text: string,
+  outWavPath: string,
+  targetAudioDuration = DEFAULT_TARGET_AUDIO_DURATION,
+) {
   const mp3Path = outWavPath.replace(/\.wav$/i, ".mp3");
   const rawWavPath = outWavPath.replace(/\.wav$/i, "_raw.wav");
   const fixedWavPath = outWavPath.replace(/\.wav$/i, "_fixed.wav");
@@ -372,9 +504,9 @@ export async function makeTtsWav(text: string, outWavPath: string) {
 
   const duration = await probeAudioDuration(rawWavPath);
 
-  // 3. 목표 시간(19.5초)보다 길 경우 배속 조절
-  if (duration > TARGET_AUDIO_DURATION) {
-    const speed = duration / TARGET_AUDIO_DURATION;
+  // 3. 목표 시간보다 길 경우 배속 조절
+  if (duration > targetAudioDuration) {
+    const speed = duration / targetAudioDuration;
     const atempo = buildAtempoFilter(speed);
 
     await run("ffmpeg", [
@@ -399,4 +531,6 @@ export async function makeTtsWav(text: string, outWavPath: string) {
   [mp3Path, rawWavPath, fixedWavPath].forEach(path => {
     if (fs.existsSync(path)) fs.unlinkSync(path);
   });
+
+  elevenLabsTimestampCache.delete(text.trim());
 }
