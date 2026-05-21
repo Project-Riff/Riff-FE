@@ -1139,7 +1139,7 @@ function pickBestCandidates(
       return false;
     }
 
-    if (candidate.visualClarity < 4 || candidate.shortformImpact < 4) {
+    if (candidate.visualClarity < 7 || candidate.shortformImpact < 7) {
       return false;
     }
 
@@ -1638,14 +1638,22 @@ function parseCutsTable(text: string, videoDuration?: number): CutSelectionResul
         continue;
       }
 
+      const hasExplicitDetailRoleColumn = cols.length >= 7;
+      const detailRole = hasExplicitDetailRoleColumn
+        ? parseFoodDetailRole(cols[3])
+        : undefined;
+      const scoreStartIndex = hasExplicitDetailRoleColumn ? 4 : 3;
+      const legacyScale = hasExplicitDetailRoleColumn ? 10 : 5;
+
       parsedRows.push({
         start,
         end,
         shotType,
         label: visual || `구간 ${i + 1}`,
-        hookStrength: parseFivePointScore(cols[3], 3),
-        visualClarity: parseFivePointScore(cols[4], 3),
-        shortformImpact: parseFivePointScore(cols[5], 3),
+        detailRole,
+        hookStrength: parseTenPointScore(cols[scoreStartIndex], 6, legacyScale),
+        visualClarity: parseTenPointScore(cols[scoreStartIndex + 1], 6, legacyScale),
+        shortformImpact: parseTenPointScore(cols[scoreStartIndex + 2], 6, legacyScale),
       });
     } catch {
       parseIssues.push({
