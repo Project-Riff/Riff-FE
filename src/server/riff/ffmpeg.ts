@@ -1,7 +1,8 @@
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import { AnalysisSegment } from "./types";
+import { AnalysisSegment, SceneChunk } from "./types";
+import { SfxCue } from "./sfx";
 
 type ProbeResult = {
   duration: number;
@@ -16,6 +17,65 @@ export const TARGET_HEIGHT = 1920;
 const SUBTITLE_TOP_RATIO = 0.65;
 const CLIP_EDGE_TRIM = 0.05;
 const FADE_TRANSITION_DURATION = 0.15;
+
+type StoreShortformLookPreset = "balance" | "vivid" | "mild";
+
+type StoreShortformLookOptions = {
+  preset?: StoreShortformLookPreset;
+  useVignette?: boolean;
+};
+
+export function buildStoreShortformLookFilter(
+  options: StoreShortformLookOptions = {},
+) {
+  const { preset = "balance", useVignette } = options;
+
+  const presetFilters: Record<StoreShortformLookPreset, string[]> = {
+    balance: [
+      // Neutralize warm cast first so whites and signage stay cleaner.
+      "colorbalance=rs=-0.035:gs=-0.015:bs=0.035:rm=-0.02:gm=0.00:bm=0.02:rh=-0.03:gh=-0.01:bh=0.04",
+      // Gentle exposure lift while preserving bright dishes and windows.
+      "eq=brightness=0.008:gamma=1.01",
+      // Mild highlight rolloff so white plates and cafe lights do not blow out.
+      "curves=all='0/0 0.18/0.18 0.54/0.53 0.84/0.81 1/0.98'",
+      // Stronger overall definition without crushing the frame.
+      "eq=contrast=1.08",
+      // Keep texture on food, drink foam, signage, and interiors.
+      "unsharp=5:5:0.72:5:5:0.0",
+      // Balanced color lift for food + cafe + storefront mixed clips.
+      "eq=saturation=1.10",
+      "vibrance=intensity=0.12:rbal=1.03:gbal=0.99:bbal=0.98",
+    ],
+    vivid: [
+      // A stronger commercial preset for punchier reels.
+      "colorbalance=rs=-0.025:gs=-0.01:bs=0.025:rm=-0.01:gm=0.00:bm=0.015:rh=-0.02:gh=-0.005:bh=0.03",
+      "eq=brightness=0.010:gamma=1.01",
+      "curves=all='0/0 0.16/0.15 0.50/0.49 0.82/0.86 1/1'",
+      "eq=contrast=1.12",
+      "unsharp=5:5:0.84:5:5:0.0",
+      "eq=saturation=1.16",
+      "vibrance=intensity=0.18:rbal=1.05:gbal=0.99:bbal=0.97",
+    ],
+    mild: [
+      // Safe preset for already vivid or bright footage.
+      "colorbalance=rs=-0.02:gs=-0.01:bs=0.02:rm=-0.01:gm=0.00:bm=0.01:rh=-0.015:gh=0.00:bh=0.02",
+      "eq=brightness=0.004:gamma=1.00",
+      "curves=all='0/0 0.20/0.20 0.55/0.55 0.85/0.84 1/0.99'",
+      "eq=contrast=1.04",
+      "unsharp=5:5:0.48:5:5:0.0",
+      "eq=saturation=1.05",
+      "vibrance=intensity=0.06:rbal=1.01:gbal=1.00:bbal=0.99",
+    ],
+  };
+
+  const filters = [...presetFilters[preset]];
+
+  if (useVignette ?? preset === "vivid") {
+    filters.push("vignette=angle=PI/6:mode=forward");
+  }
+
+  return filters.join(",");
+}
 
 function buildSubtitleFilter(subtitlePath: string) {
   const escapedSubtitlePath = escapeSubtitlePathForFfmpeg(subtitlePath);
@@ -121,6 +181,41 @@ function runCommandCapture(command: string, args: string[]) {
   });
 }
 
+function runCommandCaptureCombined(command: string, args: string[]) {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+
+    child.on("error", (error) => reject(error));
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(`${stdout}\n${stderr}`.trim());
+        return;
+      }
+
+      reject(
+        new Error(
+          `${command} 실행 실패 (code=${code})\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+        ),
+      );
+    });
+  });
+}
+
 function ensureParentDir(filePath: string) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -153,6 +248,84 @@ export async function compressVideoForAnalysis(
     "128k",
     outputPath,
   ]);
+}
+
+export async function detectStableSceneChunks(
+  videoPath: string,
+  options: {
+    sceneThreshold?: number;
+    minChunkDuration?: number;
+  } = {},
+): Promise<SceneChunk[]> {
+  const { sceneThreshold = 0.24, minChunkDuration = 2.2 } = options;
+  const meta = await probeVideo(videoPath);
+  const duration = meta.duration;
+
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`scene chunk 분석 실패: ${videoPath}`);
+  }
+
+  const rawOutput = await runCommandCaptureCombined("ffmpeg", [
+    "-hide_banner",
+    "-i",
+    videoPath,
+    "-filter:v",
+    `select='gt(scene,${sceneThreshold})',metadata=print:file=-`,
+    "-an",
+    "-f",
+    "null",
+    "-",
+  ]);
+
+  const matches = Array.from(
+    rawOutput.matchAll(/pts_time:([0-9]+(?:\.[0-9]+)?)/g),
+  );
+  const sceneTimes = Array.from(
+    new Set(
+      matches
+        .map((match) => Number(match[1]))
+        .filter(
+          (time) =>
+            Number.isFinite(time) &&
+            time > 0.2 &&
+            time < duration - 0.2,
+        )
+        .map((time) => Number(time.toFixed(3))),
+    ),
+  ).sort((a, b) => a - b);
+
+  const boundaries = [0, ...sceneTimes, duration];
+  const chunks: SceneChunk[] = [];
+
+  for (let index = 0; index < boundaries.length - 1; index += 1) {
+    const start = Number(boundaries[index].toFixed(3));
+    const end = Number(boundaries[index + 1].toFixed(3));
+    const chunkDuration = Number((end - start).toFixed(3));
+
+    if (chunkDuration < minChunkDuration) {
+      continue;
+    }
+
+    chunks.push({
+      id: `c${String(chunks.length + 1).padStart(2, "0")}`,
+      start,
+      end,
+      duration: chunkDuration,
+    });
+  }
+
+  if (chunks.length === 0) {
+    return [
+      {
+        id: "c01",
+        start: 0,
+        end: Number(duration.toFixed(3)),
+        duration: Number(duration.toFixed(3)),
+      },
+    ];
+  }
+
+  return chunks;
 }
 
 function escapeSubtitlePathForFfmpeg(filePath: string) {
@@ -261,7 +434,7 @@ export async function cutSegments(
       "-preset",
       "veryfast",
       "-crf",
-      "23",
+      "21",
       "-c:a",
       "aac",
       clipPath,
@@ -306,7 +479,7 @@ export async function retimeClipToDuration(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -337,7 +510,7 @@ export async function trimClipToDuration(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -382,7 +555,7 @@ export async function concatClips(
       "-preset",
       "veryfast",
       "-crf",
-      "23",
+      "21",
       "-c:a",
       "aac",
       outputPath,
@@ -457,7 +630,7 @@ export async function concatClips(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,
@@ -469,6 +642,7 @@ export async function muxVideoWithAudioAndSubtitles(
   audioPath: string,
   subtitlePath: string | undefined,
   outputPath: string,
+  sfxCues: SfxCue[] = [],
 ): Promise<void> {
   if (!fs.existsSync(videoPath)) {
     throw new Error(`videoPath가 없습니다: ${videoPath}`);
@@ -478,10 +652,14 @@ export async function muxVideoWithAudioAndSubtitles(
     throw new Error(`audioPath가 없습니다: ${audioPath}`);
   }
 
+  const validSfxCues = sfxCues.filter((cue) => fs.existsSync(cue.filePath));
+
   ensureParentDir(outputPath);
   const videoMeta = await probeVideo(videoPath);
   const outputDuration = videoMeta.duration;
-  const extraFilters: string[] = [];
+  const extraFilters: string[] = [
+    buildStoreShortformLookFilter({ preset: "balance" }),
+  ];
 
   if (subtitlePath) {
     if (!fs.existsSync(subtitlePath)) {
@@ -499,17 +677,41 @@ export async function muxVideoWithAudioAndSubtitles(
     extraFilters.push(buildSubtitleFilter(subtitlePath));
   }
 
+  const sfxInputArgs = validSfxCues.flatMap((cue) => ["-i", cue.filePath]);
+  const filterParts = [
+    `[0:a]volume=0.8[a0]`,
+    `[1:a]volume=2.6,apad,atrim=0:${outputDuration}[a1]`,
+  ];
+  const amixInputs = ["[a0]", "[a1]"];
+
+  validSfxCues.forEach((cue, index) => {
+    const inputIndex = index + 2;
+    const label = `sfx${index}`;
+    const delayMs = Math.max(0, Math.round(cue.startSec * 1000));
+    const trimToSec = Math.max(0.2, cue.trimToSec);
+
+    filterParts.push(
+      `[${inputIndex}:a]volume=${cue.volume},atrim=0:${trimToSec.toFixed(3)},adelay=${delayMs}|${delayMs},aresample=48000[${label}]`,
+    );
+    amixInputs.push(`[${label}]`);
+  });
+
+  filterParts.push(
+    `${amixInputs.join("")}amix=inputs=${amixInputs.length}:duration=first:dropout_transition=0[aout]`,
+  );
+
   await runCommand("ffmpeg", [
     "-y",
     "-i",
     videoPath,
     "-i",
     audioPath,
+    ...sfxInputArgs,
     ...(extraFilters.length > 0
       ? ["-vf", buildVerticalCoverFilter(extraFilters)]
       : []),
     "-filter_complex",
-    `[0:a]volume=0.8[a0];[1:a]volume=2.6,apad,atrim=0:${outputDuration}[a1];[a0][a1]amix=inputs=2:duration=first:dropout_transition=0[aout]`,
+    filterParts.join(";"),
     "-map",
     "0:v:0",
     "-map",
@@ -521,7 +723,7 @@ export async function muxVideoWithAudioAndSubtitles(
     "-preset",
     "veryfast",
     "-crf",
-    "23",
+    "21",
     "-c:a",
     "aac",
     outputPath,

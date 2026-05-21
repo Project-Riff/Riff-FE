@@ -3,18 +3,20 @@ import { getJob, patchJob, pushJobLog } from "./job-store";
 import { ensureJobDirs } from "./local-paths";
 import {
   probeVideo,
+  detectStableSceneChunks,
   cutSegments,
   normalizeClipsForTimeline,
   concatClips,
   muxVideoWithAudioAndSubtitles,
 } from "./ffmpeg";
 import {
-  analyzeVideoWithGemini,
+  analyzeCutsWithGemini,
   deriveRegionTitle,
   regenerateScriptWithGemini,
 } from "./gemini";
-import { makeTimedTtsWav, makeTtsWav } from "./macos-tts";
+import { makeTtsWav, measureSubtitleTimings, probeAudioDuration } from "./macos-tts";
 import { renderRemotionOverlay } from "./remotion";
+import { buildSfxCues } from "./sfx";
 import { writeSrtFile } from "./srt";
 import { AnalysisResult, ResumeFrom } from "./types";
 
@@ -71,8 +73,66 @@ function shouldSkipBody(resumeFrom?: ResumeFrom) {
   );
 }
 
+function scaleSubtitleTimingsToDuration(
+  subtitles: AnalysisResult["subtitles"],
+  targetDuration: number,
+) {
+  if (!subtitles || subtitles.length === 0) {
+    return subtitles;
+  }
+
+  const sourceDuration = subtitles[subtitles.length - 1]?.end ?? 0;
+
+  if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) {
+    return subtitles;
+  }
+
+  const ratio = targetDuration / sourceDuration;
+  const scaled = subtitles.map((item) => {
+    const rawDuration = Math.max(0, item.end - item.start);
+    const scaledDuration = Number((rawDuration * ratio).toFixed(3));
+
+    return {
+      ...item,
+      start: 0,
+      end: scaledDuration,
+    };
+  });
+
+  let cursor = 0;
+
+  return scaled
+    .map((item, index) => {
+      const isLast = index === scaled.length - 1;
+      const duration = Math.max(0, item.end - item.start);
+      const start =
+        index === 0
+          ? 0
+          : Number(cursor.toFixed(3));
+      const end = isLast
+        ? Number(targetDuration.toFixed(3))
+        : Number((start + duration).toFixed(3));
+
+      cursor = end;
+
+      return {
+        ...item,
+        start,
+        end,
+      };
+    })
+    .map((item, index, arr) => ({
+      ...item,
+      end:
+        index === arr.length - 1
+          ? item.end
+          : Number(Math.min(item.end, arr[index + 1].start).toFixed(3)),
+    }));
+}
+
 function clearGeneratedArtifacts(paths: ReturnType<typeof ensureJobDirs>) {
   const filesToDelete = [
+    paths.sceneChunksPath,
     paths.analysisPath,
     paths.subtitlePath,
     paths.ttsPath,
@@ -116,6 +176,24 @@ function assertAnalysis(analysis: AnalysisResult) {
   }
 }
 
+function createAnalysisSkeleton(
+  segments: AnalysisResult["segments"],
+  storeInfo?: { address?: string; subtitle?: string },
+): AnalysisResult {
+  return {
+    title: "맛집 숏폼",
+    heroTitle: storeInfo?.address?.trim()
+      ? deriveRegionTitle(storeInfo.address)
+      : "맛집",
+    heroSubtitle: storeInfo?.subtitle?.trim() || "",
+    mood: "energetic",
+    narration: "",
+    bgmTags: ["food", "shortform", "instagram"],
+    segments,
+    subtitles: [],
+  };
+}
+
 export async function runRealPipeline(jobId: string) {
   try {
     console.log(`[Pipeline] start job=${jobId}`);
@@ -144,6 +222,7 @@ export async function runRealPipeline(jobId: string) {
     }
 
     let sourceMeta: Awaited<ReturnType<typeof probeVideo>> | undefined;
+    let sceneChunks: Awaited<ReturnType<typeof detectStableSceneChunks>> = [];
 
     if (
       resumeFrom !== "body" &&
@@ -178,6 +257,40 @@ export async function runRealPipeline(jobId: string) {
         "probing",
         15,
         `길이 ${sourceMeta.duration.toFixed(1)}초 확인`,
+      );
+
+      await patchJob(jobId, {
+        stage: "probing",
+        progress: 18,
+        message: "안정 구간(scene chunk) 분석 중",
+        error: undefined,
+      });
+
+      await pushJobLog(jobId, "probing", 18, "안정 구간(scene chunk) 분석 중");
+
+      sceneChunks = await detectStableSceneChunks(job.sourcePath);
+
+      fs.writeFileSync(
+        paths.sceneChunksPath,
+        JSON.stringify(sceneChunks, null, 2),
+        "utf-8",
+      );
+
+      await patchJob(jobId, {
+        stage: "probing",
+        progress: 19,
+        message: `안정 구간 ${sceneChunks.length}개 추출`,
+        artifacts: {
+          sceneChunksPath: paths.sceneChunksPath,
+        },
+        error: undefined,
+      });
+
+      await pushJobLog(
+        jobId,
+        "probing",
+        19,
+        `안정 구간 ${sceneChunks.length}개 추출`,
       );
     }
 
@@ -227,15 +340,15 @@ export async function runRealPipeline(jobId: string) {
         "Gemini 전체 영상 업로드 및 분석 시작",
       );
 
-      analysis = await analyzeVideoWithGemini(
+      const segments = await analyzeCutsWithGemini(
         job.sourcePath,
         job.storeInfo,
         jobId,
         sourceMeta?.duration,
+        sceneChunks,
       );
+      analysis = createAnalysisSkeleton(segments, job.storeInfo);
       regeneratedAnalysis = true;
-
-      assertAnalysis(analysis);
 
       fs.writeFileSync(
         paths.analysisPath,
@@ -246,73 +359,18 @@ export async function runRealPipeline(jobId: string) {
       console.log(`[Pipeline] analysis 저장 완료 path=${paths.analysisPath}`);
     }
 
-    if (resumeFrom === "script") {
-      await patchJob(jobId, {
-        stage: "analyzing",
-        progress: 32,
-        message: "기존 컷 기준으로 제목/부제/대본 재생성 중",
-        error: undefined,
-      });
-
-      await pushJobLog(
-        jobId,
-        "analyzing",
-        32,
-        "기존 컷 기준으로 제목/부제/대본 재생성 중",
-      );
-
-      analysis = await regenerateScriptWithGemini(analysis.segments, job.storeInfo);
-      fs.writeFileSync(
-        paths.analysisPath,
-        JSON.stringify(analysis, null, 2),
-        "utf-8",
-      );
-      console.log(`[Pipeline] script-only analysis 갱신 완료 path=${paths.analysisPath}`);
-    }
-
-    if (resumeFrom === "title" && job.storeInfo?.address?.trim()) {
-      analysis.heroTitle = deriveRegionTitle(job.storeInfo.address);
-      fs.writeFileSync(
-        paths.analysisPath,
-        JSON.stringify(analysis, null, 2),
-        "utf-8",
-      );
-      console.log(`[Pipeline] title-only analysis 갱신 완료 path=${paths.analysisPath}`);
-    }
-
-    if (resumeFrom === "subtitle-only" && job.storeInfo?.subtitle?.trim()) {
-      analysis.heroSubtitle = job.storeInfo.subtitle.trim();
-      fs.writeFileSync(
-        paths.analysisPath,
-        JSON.stringify(analysis, null, 2),
-        "utf-8",
-      );
-      console.log(`[Pipeline] subtitle-only analysis 갱신 완료 path=${paths.analysisPath}`);
-    }
-
-    assertAnalysis(analysis);
-
-    if (!shouldSkipSubtitle(resumeFrom)) {
-      writeSrtFile(analysis.subtitles, subtitlePath);
-      console.log(`[Pipeline] subtitle 저장 완료 path=${subtitlePath}`);
-    } else {
-      assertFileExists(subtitlePath, "subtitle");
-      console.log(`[Pipeline] subtitle 재사용 path=${subtitlePath}`);
-    }
-
     await patchJob(jobId, {
       stage: "analyzing",
       progress: 55,
-      message: "분석 및 자막 준비 완료",
+      message: "컷 분석 완료",
       analysis,
       artifacts: {
         analysisPath: paths.analysisPath,
-        subtitlePath,
       },
       error: undefined,
     });
 
-    await pushJobLog(jobId, "analyzing", 55, "분석 및 자막 준비 완료");
+    await pushJobLog(jobId, "analyzing", 55, "컷 분석 완료");
 
     let clipPaths =
       regeneratedAnalysis
@@ -372,6 +430,78 @@ export async function runRealPipeline(jobId: string) {
       throw new Error("사용 가능한 clipPaths가 없습니다.");
     }
 
+    if (!shouldSkipBody(resumeFrom) || !fs.existsSync(paths.bodyPath)) {
+      await concatClips(clipPaths, paths.bodyPath);
+      console.log(`[Pipeline] body 생성 완료 path=${paths.bodyPath}`);
+    } else {
+      assertFileExists(paths.bodyPath, "body");
+      console.log(`[Pipeline] body 재사용 path=${paths.bodyPath}`);
+    }
+
+    const bodyMeta = await probeVideo(paths.bodyPath);
+
+    fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
+
+    console.log(`[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s`);
+    const ttsDeadline = Math.max(0.5, Number((bodyMeta.duration - 0.5).toFixed(3)));
+
+    if (resumeFrom === "full" || resumeFrom === "script") {
+      await patchJob(jobId, {
+        stage: "analyzing",
+        progress: 78,
+        message: "선택된 컷 기준으로 문구 생성 중",
+        analysis,
+        artifacts: {
+          analysisPath: paths.analysisPath,
+          clipPaths,
+          bodyPath: paths.bodyPath,
+        },
+        error: undefined,
+      });
+
+      await pushJobLog(jobId, "analyzing", 78, "선택된 컷 기준으로 문구 생성 중");
+
+      analysis = await regenerateScriptWithGemini(analysis.segments, job.storeInfo);
+
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+
+      console.log(`[Pipeline] body 이후 script 생성 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "title" && job.storeInfo?.address?.trim()) {
+      analysis.heroTitle = deriveRegionTitle(job.storeInfo.address);
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] title-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    if (resumeFrom === "subtitle-only" && job.storeInfo?.subtitle?.trim()) {
+      analysis.heroSubtitle = job.storeInfo.subtitle.trim();
+      fs.writeFileSync(
+        paths.analysisPath,
+        JSON.stringify(analysis, null, 2),
+        "utf-8",
+      );
+      console.log(`[Pipeline] subtitle-only analysis 갱신 완료 path=${paths.analysisPath}`);
+    }
+
+    assertAnalysis(analysis);
+
+    if (!shouldSkipSubtitle(resumeFrom)) {
+      writeSrtFile(analysis.subtitles, subtitlePath);
+      console.log(`[Pipeline] subtitle 저장 완료 path=${subtitlePath}`);
+    } else {
+      assertFileExists(subtitlePath, "subtitle");
+      console.log(`[Pipeline] subtitle 재사용 path=${subtitlePath}`);
+    }
+
     await patchJob(jobId, {
       stage: "tts",
       progress: 80,
@@ -380,6 +510,7 @@ export async function runRealPipeline(jobId: string) {
       artifacts: {
         analysisPath: paths.analysisPath,
         clipPaths,
+        bodyPath: paths.bodyPath,
         subtitlePath,
       },
       error: undefined,
@@ -388,10 +519,22 @@ export async function runRealPipeline(jobId: string) {
     await pushJobLog(jobId, "tts", 80, "TTS 생성 중");
 
     if (!shouldSkipTts(resumeFrom) || !fs.existsSync(paths.ttsPath)) {
+      let measuredSubtitles = analysis.subtitles;
+
       if (analysis.subtitles?.length) {
-        analysis.subtitles = await makeTimedTtsWav(
+        measuredSubtitles = await measureSubtitleTimings(
           analysis.subtitles,
-          paths.ttsPath,
+          analysis.narration,
+        );
+      }
+
+      await makeTtsWav(analysis.narration, paths.ttsPath, ttsDeadline);
+
+      if (measuredSubtitles?.length) {
+        const ttsDuration = await probeAudioDuration(paths.ttsPath);
+        analysis.subtitles = scaleSubtitleTimingsToDuration(
+          measuredSubtitles,
+          ttsDuration,
         );
         writeSrtFile(analysis.subtitles, subtitlePath);
         fs.writeFileSync(
@@ -399,9 +542,8 @@ export async function runRealPipeline(jobId: string) {
           JSON.stringify(analysis, null, 2),
           "utf-8",
         );
-      } else {
-        await makeTtsWav(analysis.narration, paths.ttsPath);
       }
+
       console.log(`[Pipeline] TTS 생성 완료 path=${paths.ttsPath}`);
     } else {
       assertFileExists(paths.ttsPath, "TTS");
@@ -423,20 +565,6 @@ export async function runRealPipeline(jobId: string) {
     });
 
     await pushJobLog(jobId, "rendering", 90, "20초 영상 합성 중");
-
-    if (!shouldSkipBody(resumeFrom) || !fs.existsSync(paths.bodyPath)) {
-      await concatClips(clipPaths, paths.bodyPath);
-      console.log(`[Pipeline] body 생성 완료 path=${paths.bodyPath}`);
-    } else {
-      assertFileExists(paths.bodyPath, "body");
-      console.log(`[Pipeline] body 재사용 path=${paths.bodyPath}`);
-    }
-
-    const bodyMeta = await probeVideo(paths.bodyPath);
-
-    fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
-
-    console.log(`[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s`);
 
     await patchJob(jobId, {
       stage: "rendering",
@@ -491,11 +619,37 @@ export async function runRealPipeline(jobId: string) {
 
     await pushJobLog(jobId, "rendering", 97, "음성 및 자막 합성");
 
+    const sfxResult = buildSfxCues(analysis.segments);
+    const sfxCues = sfxResult.cues;
+
+    if (sfxResult.diagnostics.length > 0) {
+      await pushJobLog(
+        jobId,
+        "rendering",
+        97,
+        `효과음 매칭 ${sfxResult.diagnostics
+          .map(
+            (item) =>
+              `${item.presetId} <- ${item.shotType}(${item.matchedKeyword})`,
+          )
+          .join(", ")}`,
+      );
+    } else {
+      await pushJobLog(jobId, "rendering", 97, "효과음 매칭 없음");
+    }
+
+    await patchJob(jobId, {
+      artifacts: {
+        sfxDiagnostics: sfxResult.diagnostics,
+      },
+    });
+
     await muxVideoWithAudioAndSubtitles(
       paths.overlayPath,
       paths.ttsPath,
       undefined,
       paths.finalPath,
+      sfxCues,
     );
 
     const finalMeta = await probeVideo(paths.finalPath);
