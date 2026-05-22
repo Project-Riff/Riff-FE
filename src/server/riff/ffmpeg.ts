@@ -88,8 +88,9 @@ function buildSubtitleFilter(subtitlePath: string) {
     "Bold=0",
     "PrimaryColour=&H00FFFFFF",
     "OutlineColour=&H001A120E",
-    "Outline=1",
-    "Shadow=0",
+    "BorderStyle=1",
+    "Outline=0.8",
+    "Shadow=1.2",
     "Spacing=0.2",
     "BackColour=&H00000000",
   ].join(",");

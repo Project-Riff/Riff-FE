@@ -16,12 +16,12 @@ export default function AdminPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Link
-          href="/admin/create-shortform"
+          href="/admin/shortform-studio"
           className="group rounded-[24px] border border-black/8 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-black/15 hover:shadow-[0_16px_40px_rgba(0,0,0,0.06)]"
         >
           <div className="flex items-center justify-between">
             <p className="text-lg font-semibold tracking-[-0.02em] text-neutral-900">
-              숏폼 생성
+              숏폼 스튜디오
             </p>
             <span className="rounded-full border border-black/10 px-3 py-1 text-xs font-medium text-neutral-500 transition group-hover:text-neutral-800">
               바로가기
@@ -29,9 +29,10 @@ export default function AdminPage() {
           </div>
 
           <p className="mt-3 text-sm leading-6 text-neutral-500">
-            원본 영상을 업로드해 숏폼 작업을 생성합니다.
+            새 파이프라인 UI에서 숏폼 작업을 생성합니다.
           </p>
         </Link>
+
       </div>
     </section>
   );

@@ -232,7 +232,7 @@ export async function runRealPipeline(jobId: string) {
     ) {
       await patchJob(jobId, {
         stage: "probing",
-        progress: 10,
+        progress: 8,
         message: "영상 정보 확인",
         error: undefined,
       });
@@ -247,7 +247,7 @@ export async function runRealPipeline(jobId: string) {
 
       await patchJob(jobId, {
         stage: "probing",
-        progress: 15,
+        progress: 12,
         message: `길이 ${sourceMeta.duration.toFixed(1)}초 확인`,
         error: undefined,
       });
@@ -261,7 +261,7 @@ export async function runRealPipeline(jobId: string) {
 
       await patchJob(jobId, {
         stage: "probing",
-        progress: 18,
+        progress: 16,
         message: "안정 구간(scene chunk) 분석 중",
         error: undefined,
       });
@@ -278,7 +278,7 @@ export async function runRealPipeline(jobId: string) {
 
       await patchJob(jobId, {
         stage: "probing",
-        progress: 19,
+        progress: 22,
         message: `안정 구간 ${sceneChunks.length}개 추출`,
         artifacts: {
           sceneChunksPath: paths.sceneChunksPath,
@@ -289,7 +289,7 @@ export async function runRealPipeline(jobId: string) {
       await pushJobLog(
         jobId,
         "probing",
-        19,
+        22,
         `안정 구간 ${sceneChunks.length}개 추출`,
       );
     }
@@ -313,12 +313,12 @@ export async function runRealPipeline(jobId: string) {
 
       await patchJob(jobId, {
         stage: "analyzing",
-        progress: 20,
+        progress: 28,
         message: "기존 분석 결과 불러오는 중",
         error: undefined,
       });
 
-      await pushJobLog(jobId, "analyzing", 20, "기존 분석 결과 불러오는 중");
+      await pushJobLog(jobId, "analyzing", 28, "기존 분석 결과 불러오는 중");
 
       analysis = readJsonFile<AnalysisResult>(existingAnalysisPath);
     } else {
@@ -328,7 +328,7 @@ export async function runRealPipeline(jobId: string) {
 
       await patchJob(jobId, {
         stage: "analyzing",
-        progress: 20,
+        progress: 28,
         message: "Gemini 전체 영상 업로드 및 분석 시작",
         error: undefined,
       });
@@ -336,7 +336,7 @@ export async function runRealPipeline(jobId: string) {
       await pushJobLog(
         jobId,
         "analyzing",
-        20,
+        28,
         "Gemini 전체 영상 업로드 및 분석 시작",
       );
 
@@ -361,7 +361,7 @@ export async function runRealPipeline(jobId: string) {
 
     await patchJob(jobId, {
       stage: "analyzing",
-      progress: 55,
+      progress: 46,
       message: "컷 분석 완료",
       analysis,
       artifacts: {
@@ -370,7 +370,7 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "analyzing", 55, "컷 분석 완료");
+    await pushJobLog(jobId, "analyzing", 46, "컷 분석 완료");
 
     let clipPaths =
       regeneratedAnalysis
@@ -389,7 +389,7 @@ export async function runRealPipeline(jobId: string) {
     ) {
       await patchJob(jobId, {
         stage: "cutting",
-        progress: 68,
+        progress: 58,
         message: "Gemini 분석 구간 컷팅 중",
         analysis,
         artifacts: {
@@ -399,7 +399,7 @@ export async function runRealPipeline(jobId: string) {
         error: undefined,
       });
 
-      await pushJobLog(jobId, "cutting", 68, "Gemini 분석 구간 컷팅 중");
+      await pushJobLog(jobId, "cutting", 58, "Gemini 분석 구간 컷팅 중");
 
       if (!job.sourcePath) {
         throw new Error("clip 생성에는 sourcePath가 필요합니다.");
@@ -443,12 +443,27 @@ export async function runRealPipeline(jobId: string) {
     fs.copyFileSync(paths.bodyPath, paths.overlaySourcePath);
 
     console.log(`[Pipeline] body duration=${bodyMeta.duration.toFixed(2)}s`);
+    await patchJob(jobId, {
+      stage: "cutting",
+      progress: 66,
+      message: "body 영상 준비 완료",
+      analysis,
+      artifacts: {
+        analysisPath: paths.analysisPath,
+        clipPaths,
+        bodyPath: paths.bodyPath,
+      },
+      error: undefined,
+    });
+
+    await pushJobLog(jobId, "cutting", 66, "body 영상 준비 완료");
+
     const ttsDeadline = Math.max(0.5, Number((bodyMeta.duration - 0.5).toFixed(3)));
 
     if (resumeFrom === "full" || resumeFrom === "script") {
       await patchJob(jobId, {
         stage: "analyzing",
-        progress: 78,
+        progress: 72,
         message: "선택된 컷 기준으로 문구 생성 중",
         analysis,
         artifacts: {
@@ -459,7 +474,7 @@ export async function runRealPipeline(jobId: string) {
         error: undefined,
       });
 
-      await pushJobLog(jobId, "analyzing", 78, "선택된 컷 기준으로 문구 생성 중");
+      await pushJobLog(jobId, "analyzing", 72, "선택된 컷 기준으로 문구 생성 중");
 
       analysis = await regenerateScriptWithGemini(analysis.segments, job.storeInfo);
 
@@ -504,7 +519,7 @@ export async function runRealPipeline(jobId: string) {
 
     await patchJob(jobId, {
       stage: "tts",
-      progress: 80,
+      progress: 82,
       message: "TTS 생성 중",
       analysis,
       artifacts: {
@@ -516,7 +531,7 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "tts", 80, "TTS 생성 중");
+    await pushJobLog(jobId, "tts", 82, "TTS 생성 중");
 
     if (!shouldSkipTts(resumeFrom) || !fs.existsSync(paths.ttsPath)) {
       let measuredSubtitles = analysis.subtitles;
@@ -551,8 +566,25 @@ export async function runRealPipeline(jobId: string) {
     }
 
     await patchJob(jobId, {
+      stage: "tts",
+      progress: 88,
+      message: "TTS 및 자막 동기화 완료",
+      analysis,
+      artifacts: {
+        analysisPath: paths.analysisPath,
+        clipPaths,
+        bodyPath: paths.bodyPath,
+        subtitlePath,
+        ttsPath: paths.ttsPath,
+      },
+      error: undefined,
+    });
+
+    await pushJobLog(jobId, "tts", 88, "TTS 및 자막 동기화 완료");
+
+    await patchJob(jobId, {
       stage: "rendering",
-      progress: 90,
+      progress: 92,
       message: "20초 영상 합성 중",
       analysis,
       artifacts: {
@@ -564,11 +596,11 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "rendering", 90, "20초 영상 합성 중");
+    await pushJobLog(jobId, "rendering", 92, "20초 영상 합성 중");
 
     await patchJob(jobId, {
       stage: "rendering",
-      progress: 95,
+      progress: 96,
       message: "디자인 오버레이 렌더링",
       analysis,
       artifacts: {
@@ -581,7 +613,7 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "rendering", 95, "디자인 오버레이 렌더링");
+    await pushJobLog(jobId, "rendering", 96, "디자인 오버레이 렌더링");
 
     const overlayTitle =
       analysis.heroTitle?.trim() || analysis.title || "맛집 숏폼";
@@ -603,7 +635,7 @@ export async function runRealPipeline(jobId: string) {
 
     await patchJob(jobId, {
       stage: "rendering",
-      progress: 97,
+      progress: 98,
       message: "음성 및 자막 합성",
       analysis,
       artifacts: {
@@ -617,7 +649,7 @@ export async function runRealPipeline(jobId: string) {
       error: undefined,
     });
 
-    await pushJobLog(jobId, "rendering", 97, "음성 및 자막 합성");
+    await pushJobLog(jobId, "rendering", 98, "음성 및 자막 합성");
 
     const sfxResult = buildSfxCues(analysis.segments);
     const sfxCues = sfxResult.cues;

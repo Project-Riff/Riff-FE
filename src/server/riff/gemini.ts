@@ -696,7 +696,7 @@ function scoreCutCandidate(row: ParsedCutRow) {
   if (row.shotType === "food_hook") {
     score += hookBonus + clarityBonus + impactBonus;
   } else if (row.shotType === "food_detail") {
-    score += clarityBonus + impactBonus;
+    score += hookBonus * 0.22 + clarityBonus + impactBonus;
   } else if (row.shotType === "ending") {
     score += clarityBonus + impactBonus * 0.8;
   } else {
