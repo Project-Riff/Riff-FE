@@ -54,7 +54,7 @@ export default function Header() {
 
         <div className="flex items-center gap-2.5">
           <a
-            href="https://www.instagram.com/riff_ai.studio/"
+            href="https://www.instagram.com/riff_food/"
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#ff7a2f] text-white shadow-[0_4px_12px_rgba(255,122,47,0.2)] transition-all duration-300 hover:bg-[#ff8a3d] hover:scale-105 active:scale-95"

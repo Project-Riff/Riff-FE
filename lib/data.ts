@@ -23,8 +23,8 @@ export const processItems = [
 
 export const sampleVideos = [
   {
-    title: "가성비 맛집 쇼츠",
-    desc: "짧고 강한 훅 중심의 맛집 홍보 영상",
+    title: "숨은 동네 맛집 템플릿",
+    desc: "희소성과 로컬 감성을 강조하는 홍보 템플릿",
     src: "/sample-1.mp4",
   },
   {
