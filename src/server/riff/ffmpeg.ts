@@ -8,6 +8,7 @@ type ProbeResult = {
   duration: number;
   width?: number;
   height?: number;
+  hasAudio?: boolean;
 };
 
 export const FINAL_VIDEO_DURATION = 20;
@@ -381,6 +382,9 @@ export async function probeVideo(videoPath: string): Promise<ProbeResult> {
   const videoStream = parsed?.streams?.find(
     (stream) => stream.codec_type === "video",
   );
+  const audioStream = parsed?.streams?.find(
+    (stream) => stream.codec_type === "audio",
+  );
 
   if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error(`영상 길이 분석 실패: ${videoPath}`);
@@ -390,6 +394,7 @@ export async function probeVideo(videoPath: string): Promise<ProbeResult> {
     duration,
     width: videoStream?.width,
     height: videoStream?.height,
+    hasAudio: Boolean(audioStream),
   };
 }
 
@@ -541,6 +546,38 @@ export async function concatClips(
   ensureParentDir(outputPath);
 
   if (clipPaths.length === 1) {
+    const meta = await probeVideo(clipPaths[0]);
+
+    if (!meta.hasAudio) {
+      await runCommand("ffmpeg", [
+        "-y",
+        "-i",
+        clipPaths[0],
+        "-f",
+        "lavfi",
+        "-t",
+        String(meta.duration),
+        "-i",
+        "anullsrc=r=48000:cl=stereo",
+        "-vf",
+        buildVerticalCoverFilter(),
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "21",
+        "-c:a",
+        "aac",
+        outputPath,
+      ]);
+      return;
+    }
+
     await runCommand("ffmpeg", [
       "-y",
       "-i",
@@ -564,10 +601,9 @@ export async function concatClips(
     return;
   }
 
-  const durations = await Promise.all(
+  const clipMetas = await Promise.all(
     clipPaths.map(async (clipPath) => {
-      const meta = await probeVideo(clipPath);
-      return meta.duration;
+      return probeVideo(clipPath);
     }),
   );
 
@@ -576,7 +612,8 @@ export async function concatClips(
   const effectiveDurations: number[] = [];
 
   for (let i = 0; i < clipPaths.length; i += 1) {
-    const duration = durations[i];
+    const meta = clipMetas[i];
+    const duration = meta.duration;
     const startTrim = i === 0 ? 0 : Math.min(CLIP_EDGE_TRIM, duration / 8);
     const endTrim =
       i === clipPaths.length - 1 ? 0 : Math.min(CLIP_EDGE_TRIM, duration / 8);
@@ -587,8 +624,17 @@ export async function concatClips(
     filterParts.push(
       `[${i}:v]trim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},setpts=PTS-STARTPTS,scale=${TARGET_WIDTH}:${TARGET_HEIGHT}:force_original_aspect_ratio=increase,crop=${TARGET_WIDTH}:${TARGET_HEIGHT},fps=60,format=yuv420p[v${i}]`,
     );
+
+    if (meta.hasAudio) {
+      filterParts.push(
+        `[${i}:a]atrim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},asetpts=PTS-STARTPTS,aresample=48000[a${i}]`,
+      );
+      continue;
+    }
+
+    // Some source clips are video-only, so we synthesize matching silence.
     filterParts.push(
-      `[${i}:a]atrim=start=${startTrim.toFixed(3)}:end=${trimmedEnd.toFixed(3)},asetpts=PTS-STARTPTS,aresample=48000[a${i}]`,
+      `anullsrc=r=48000:cl=stereo,atrim=0:${effectiveDuration.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`,
     );
   }
 
