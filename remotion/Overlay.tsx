@@ -150,6 +150,7 @@ export const OverlayVideo: React.FC = () => {
     : input.videoSrc;
   const subtitleTop = height * 0.38;
   const infoSubtitleTop = height * 0.65;
+  const pretendardSemiBoldSrc = staticFile("fonts/Pretendard-SemiBold.otf");
   const currentSeconds = frame / fps;
   const activeInfoSubtitle =
     infoSubtitles.find(
@@ -181,6 +182,14 @@ export const OverlayVideo: React.FC = () => {
         overflow: "hidden",
       }}
     >
+      <style>{`
+        @font-face {
+          font-family: 'Pretendard SemiBold';
+          src: url('${pretendardSemiBoldSrc}') format('opentype');
+          font-weight: 600;
+          font-style: normal;
+        }
+      `}</style>
       <OffthreadVideo
         src={videoSrc}
         style={{
@@ -234,24 +243,18 @@ export const OverlayVideo: React.FC = () => {
           <div
             style={{
               maxWidth: "100%",
-              padding: "14px 20px",
-              borderRadius: 18,
-              background: "rgba(28, 20, 16, 0.38)",
-              boxShadow:
-                "0 16px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.12)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.12)",
               fontFamily:
-                '"Pretendard Variable", "SUIT", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
-              color: "#fffdf8",
-              fontSize: 40,
-              lineHeight: 1.25,
-              fontWeight: 500,
+                '"Pretendard SemiBold", "Pretendard Variable", "SUIT", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+              color: "#ffffff",
+              fontSize: 44,
+              lineHeight: 1.22,
+              fontWeight: 600,
               textAlign: "center",
               letterSpacing: "-0.02em",
+              WebkitTextStroke: "4px rgba(0,0,0,0.92)",
+              paintOrder: "stroke fill",
               textShadow:
-                "0 2px 14px rgba(0,0,0,0.34), 0 1px 1px rgba(0,0,0,0.28)",
+                "0 5px 0 rgba(0,0,0,0.62), 0 12px 18px rgba(0,0,0,0.26)",
               whiteSpace: "pre-wrap",
             }}
           >
