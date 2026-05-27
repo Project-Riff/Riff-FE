@@ -1,5 +1,5 @@
-import { Check } from "lucide-react";
 import { pricingItems } from "@/lib/data";
+import { Check } from "lucide-react";
 
 export default function PricingSection() {
   return (
@@ -64,7 +64,7 @@ export default function PricingSection() {
 
                     {isFeatured && (
                       <p className="mt-2 text-[12px] leading-[1.6] text-[#ff7a2f]">
-                        기존 5만원에서 19,000원으로 할인 적용
+                        기존 2,900원에서 1,900원으로 할인 적용
                       </p>
                     )}
                   </div>

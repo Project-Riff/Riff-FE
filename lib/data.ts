@@ -42,8 +42,8 @@ export const sampleVideos = [
 export const pricingItems = [
   {
     name: "Basic",
-    price: "19,000원",
-    originalPrice: "50,000원",
+    price: "1.900원",
+    originalPrice: "2,900원",
     features: [
       "30초 내외 쇼츠 1개",
       "자막 삽입",
@@ -53,7 +53,7 @@ export const pricingItems = [
   },
   {
     name: "Standard",
-    price: "70,000원",
+    price: "5,900원",
     features: [
       "쇼츠 영상 2개",
       "자막 스타일 커스텀",
@@ -63,7 +63,7 @@ export const pricingItems = [
   },
   {
     name: "Premium",
-    price: "100,000원",
+    price: "9,900원",
     features: [
       "쇼츠 영상 3개",
       "브랜딩 문구 적용",
