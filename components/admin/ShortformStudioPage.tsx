@@ -107,114 +107,97 @@ const orderedSupportSegments = [
     {
       d: "M 154 306 C 196 268, 208 175, 236 96",
       width: 2.3,
-      opacity: 0.58,
-      glow: "pipelineGlow",
+      opacity: 0.36,
     },
     {
       d: "M 154 306 C 178 252, 199 181, 223 129 C 227 118, 231 108, 236 96",
       width: 1.7,
-      opacity: 0.46,
-      glow: "softBranchGlow",
+      opacity: 0.26,
     },
     {
       d: "M 154 306 C 165 250, 182 185, 205 140 C 214 122, 224 107, 236 96",
       width: 1.4,
-      opacity: 0.38,
-      glow: "softBranchGlow",
+      opacity: 0.18,
     },
   ],
   [
     {
       d: "M 236 96 C 274 176, 312 280, 378 326",
       width: 2.3,
-      opacity: 0.58,
-      glow: "pipelineGlow",
+      opacity: 0.36,
     },
     {
       d: "M 236 96 C 280 154, 317 246, 360 301 C 367 310, 372 318, 378 326",
       width: 1.7,
-      opacity: 0.46,
-      glow: "softBranchGlow",
+      opacity: 0.26,
     },
     {
       d: "M 258 112 C 303 180, 319 239, 355 289 C 364 301, 370 313, 378 326",
       width: 1.4,
-      opacity: 0.38,
-      glow: "softBranchGlow",
+      opacity: 0.18,
     },
   ],
   [
     {
       d: "M 378 326 C 416 258, 429 144, 466 82",
       width: 2.3,
-      opacity: 0.58,
-      glow: "pipelineGlow",
+      opacity: 0.36,
     },
     {
       d: "M 378 326 C 417 282, 438 160, 457 107 C 460 99, 463 90, 466 82",
       width: 1.7,
-      opacity: 0.48,
-      glow: "softBranchGlow",
+      opacity: 0.28,
     },
     {
       d: "M 394 313 C 429 255, 440 169, 454 111 C 458 98, 462 89, 466 82",
       width: 1.4,
-      opacity: 0.38,
-      glow: "softBranchGlow",
+      opacity: 0.18,
     },
   ],
   [
     {
       d: "M 466 82 C 524 152, 554 254, 610 302",
       width: 2.1,
-      opacity: 0.5,
-      glow: "pipelineGlow",
+      opacity: 0.32,
     },
     {
       d: "M 466 82 C 504 132, 538 221, 585 285 C 594 296, 602 300, 610 302",
       width: 1.8,
-      opacity: 0.48,
-      glow: "softBranchGlow",
+      opacity: 0.28,
     },
     {
       d: "M 489 110 C 530 165, 555 244, 600 294",
       width: 1.2,
-      opacity: 0.28,
-      glow: "softBranchGlow",
+      opacity: 0.16,
     },
   ],
   [
     {
       d: "M 610 302 C 634 232, 652 146, 692 102",
       width: 2.1,
-      opacity: 0.5,
-      glow: "pipelineGlow",
+      opacity: 0.32,
     },
     {
       d: "M 610 302 C 632 249, 647 171, 679 121 C 684 113, 688 107, 692 102",
       width: 1.6,
-      opacity: 0.45,
-      glow: "softBranchGlow",
+      opacity: 0.24,
     },
     {
       d: "M 629 282 C 647 233, 661 159, 684 119",
       width: 1.2,
-      opacity: 0.28,
-      glow: "softBranchGlow",
+      opacity: 0.16,
     },
   ],
   [
     {
       d: "M 692 102 C 741 113, 800 146, 846 214",
       width: 1.6,
-      opacity: 0.45,
-      glow: "softBranchGlow",
+      opacity: 0.24,
     },
     {
       d: "M 720 124 C 766 138, 811 167, 838 202",
       width: 1.2,
-      opacity: 0.3,
-      glow: "softBranchGlow",
+      opacity: 0.16,
     },
   ],
 ] as const;
@@ -457,7 +440,7 @@ export default function ShortformStudioPage() {
   const sweepEndX = stageNodePoints[sweepStep - 1].x + 320;
   const sweepStartX = -620;
   const sweepDistancePx = sweepEndX - sweepStartX;
-  const waveCount = 3;
+  const waveCount = 2;
   const waveTravelSpeedPxPerSec = 138;
   const waveTravelDurationSec = Number(
     (sweepDistancePx / waveTravelSpeedPxPerSec).toFixed(2),
@@ -701,7 +684,7 @@ export default function ShortformStudioPage() {
                             return (
                               <g key={`support-${index}`}>
                                 {segment.map((path, subIndex) => (
-                                  <path
+                                <path
                                     key={`support-${index}-${subIndex}`}
                                     d={path.d}
                                     fill="none"
@@ -709,7 +692,6 @@ export default function ShortformStudioPage() {
                                     strokeWidth={path.width}
                                     strokeLinecap="round"
                                     opacity={path.opacity}
-                                    filter={`url(#${path.glow})`}
                                   />
                                 ))}
                               </g>
