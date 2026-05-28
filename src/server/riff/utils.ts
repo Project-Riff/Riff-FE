@@ -38,11 +38,10 @@ export function readStoreInfo(src: unknown): StoreInfo | undefined {
   };
 
   const info: StoreInfo = {
-    name: get("name"),
     address: get("address"),
-    hours: get("hours"),
-    phone: get("phone"),
-    instagram: get("instagram"),
+    subtitle: get("subtitle"),
+    strengths: get("strengths"),
+    thumbnailTitle: get("thumbnailTitle"),
   };
 
   return Object.values(info).some(Boolean) ? info : undefined;

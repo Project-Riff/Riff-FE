@@ -3,13 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type StoreInfo = {
-  name: string;
   address: string;
   subtitle: string;
   strengths: string;
-  hours: string;
-  phone: string;
-  instagram: string;
+  thumbnailTitle?: string;
 };
 
 export type SubtitleItem = {
@@ -51,6 +48,15 @@ export type JobResponse = {
     subtitlePath?: string;
     ttsPath?: string;
     bodyPath?: string;
+    thumbnailUrl?: string;
+    thumbnailCandidates?: Array<{
+      index: number;
+      url: string;
+      path: string;
+    }>;
+    thumbnailPreferredIndex?: number;
+    menuName?: string;
+    instagramCaption?: string;
   };
   logs?: Array<{
     t: number;
@@ -171,13 +177,10 @@ export function useShortformPipeline() {
   const [isUploading, setIsUploading] = useState(false);
 
   const [storeInfo, setStoreInfo] = useState<StoreInfo>({
-    name: "",
     address: "",
     subtitle: "",
     strengths: "",
-    hours: "",
-    phone: "",
-    instagram: "",
+    thumbnailTitle: "",
   });
 
   const progress = job?.progress ?? 0;
