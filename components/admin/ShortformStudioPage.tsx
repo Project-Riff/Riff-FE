@@ -360,7 +360,7 @@ function StageNode({
     <button
       type="button"
       onClick={onClick}
-      className={`relative w-[148px] rounded-[24px] border-2 px-3.5 pb-3.5 pt-4 text-center transition ${
+      className={`relative w-[128px] rounded-[24px] border-2 px-2 pb-3.5 pt-4 text-center transition ${
         active
           ? "stage-active-glow border-[#ff7a2f] bg-gradient-to-br from-[#fff5ec] to-white"
           : done
@@ -532,7 +532,7 @@ export default function ShortformStudioPage() {
                         className="pointer-events-none absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 bg-[#ff7a2f] shadow-[0_0_14px_rgba(255,122,47,0.85)] transition-[left] duration-700 ease-out"
                         style={{ left: `${pipelinePercent}%`, opacity: pipelinePercent > 0 && pipelinePercent < 100 ? 1 : 0 }}
                       />
-                      <div className="relative z-10 flex w-full items-center overflow-x-auto px-3 pb-3 pt-5">
+                      <div className="relative z-10 flex w-full items-center overflow-x-auto px-3 pb-3 pt-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {pipelineStages.map((stage, idx) => {
                           const isLast = idx === pipelineStages.length - 1;
                           const status = pipelineStatuses[idx];
@@ -831,7 +831,7 @@ export default function ShortformStudioPage() {
 
                         <div
                           ref={logScrollRef}
-                          className="flex-1 space-y-1.5 overflow-y-auto pr-1"
+                          className="flex-1 space-y-1.5 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#ff7a2f]"
                           style={{ maxHeight: 320 }}
                         >
                           {jobLogs.length === 0 ? (
@@ -901,8 +901,8 @@ export default function ShortformStudioPage() {
                 </div>
 
                 {job?.artifacts?.finalUrl ? (
-                  <div className="mx-auto max-w-[920px] space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="mx-auto max-w-[1200px]">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
                       <div className="mb-2.5 flex items-center justify-between">
                         <div className="text-sm font-semibold text-slate-900">
@@ -1034,10 +1034,9 @@ export default function ShortformStudioPage() {
                         썸네일이 아직 생성되지 않았습니다
                       </div>
                     )}
-                    </div>
 
                     {job?.artifacts?.instagramCaption ? (
-                      <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
+                      <div className="flex flex-col rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
                         <div className="mb-2.5 flex items-center justify-between">
                           <div className="text-sm font-semibold text-slate-900">
                             인스타 본문
@@ -1063,7 +1062,7 @@ export default function ShortformStudioPage() {
                             {captionCopied ? "복사됨" : "본문 복사"}
                           </button>
                         </div>
-                        <div className="max-h-[520px] overflow-y-auto rounded-[18px] border border-black/8 bg-[#faf8f5] px-3.5 py-3">
+                        <div className="flex-1 overflow-y-auto rounded-[18px] border border-black/8 bg-[#faf8f5] px-3.5 py-3">
                           <pre className="whitespace-pre-wrap break-words font-[inherit] text-[12.5px] leading-6 text-slate-700">
                             {job.artifacts.instagramCaption}
                           </pre>
@@ -1074,10 +1073,11 @@ export default function ShortformStudioPage() {
                         인스타 본문이 아직 생성되지 않았습니다
                       </div>
                     )}
+                    </div>
                   </div>
                 ) : (
-                  <div className="mx-auto max-w-[920px] space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="mx-auto max-w-[1200px]">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
                         아웃풋 영상이
                         <br />여기에 표시됩니다
@@ -1086,9 +1086,10 @@ export default function ShortformStudioPage() {
                         썸네일이
                         <br />여기에 표시됩니다
                       </div>
-                    </div>
-                    <div className="flex h-[120px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
-                      인스타 본문이 여기에 표시됩니다
+                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
+                        인스타 본문이
+                        <br />여기에 표시됩니다
+                      </div>
                     </div>
                   </div>
                 )}
