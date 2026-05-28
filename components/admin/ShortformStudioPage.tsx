@@ -446,8 +446,7 @@ export default function ShortformStudioPage() {
   const selectedStageIndex = pipelineStages.findIndex(
     (stage) => stage.key === effectiveSelectedStageKey,
   );
-  const selectedStage =
-    pipelineStages[selectedStageIndex] ?? pipelineStages[0];
+  const selectedStage = pipelineStages[selectedStageIndex] ?? pipelineStages[0];
   const selectedStageStatus =
     pipelineStatuses[selectedStageIndex] ?? ("idle" as PipelineVisualStatus);
   const selectedSegments = job?.analysis?.segments ?? [];
@@ -458,7 +457,7 @@ export default function ShortformStudioPage() {
   const sweepEndX = stageNodePoints[sweepStep - 1].x + 320;
   const sweepStartX = -620;
   const sweepDistancePx = sweepEndX - sweepStartX;
-  const waveCount = 2;
+  const waveCount = 3;
   const waveTravelSpeedPxPerSec = 138;
   const waveTravelDurationSec = Number(
     (sweepDistancePx / waveTravelSpeedPxPerSec).toFixed(2),
@@ -782,7 +781,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[1].accent}
                             status={pipelineStatuses[1]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[1].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[1].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[1].key)
@@ -798,7 +798,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[3].accent}
                             status={pipelineStatuses[3]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[3].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[3].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[3].key)
@@ -814,7 +815,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[5].accent}
                             status={pipelineStatuses[5]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[5].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[5].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[5].key)
@@ -830,7 +832,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[6].accent}
                             status={pipelineStatuses[6]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[6].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[6].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[6].key)
@@ -846,7 +849,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[0].accent}
                             status={pipelineStatuses[0]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[0].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[0].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[0].key)
@@ -862,7 +866,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[2].accent}
                             status={pipelineStatuses[2]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[2].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[2].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[2].key)
@@ -878,7 +883,8 @@ export default function ShortformStudioPage() {
                             accent={pipelineStages[4].accent}
                             status={pipelineStatuses[4]}
                             selected={
-                              effectiveSelectedStageKey === pipelineStages[4].key
+                              effectiveSelectedStageKey ===
+                              pipelineStages[4].key
                             }
                             onClick={() =>
                               setSelectedStageKey(pipelineStages[4].key)
@@ -952,7 +958,6 @@ export default function ShortformStudioPage() {
                       하단에서 바로 작업 생성
                     </div>
                   </div>
-
                 </div>
 
                 <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr_0.82fr_0.95fr]">
@@ -1187,7 +1192,7 @@ export default function ShortformStudioPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 h-0 min-h-0 flex-1 overflow-y-auto pr-2">
+                  <div className="studio-scroll mt-6 h-0 min-h-0 flex-1 overflow-y-auto pr-2">
                     {effectiveSelectedStageKey === "hooks" ? (
                       <div className="pb-2 pt-2">
                         <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
@@ -1230,7 +1235,8 @@ export default function ShortformStudioPage() {
                               </div>
                             ) : null}
                             <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                              {generatedNarration || "아직 생성된 대본이 없습니다."}
+                              {generatedNarration ||
+                                "아직 생성된 대본이 없습니다."}
                             </div>
                           </div>
                         ) : (
@@ -1343,6 +1349,41 @@ export default function ShortformStudioPage() {
         .pipeline-wave-done {
           opacity: 0.58;
           animation: none;
+        }
+
+        .studio-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 122, 47, 0.42) transparent;
+        }
+
+        .studio-scroll::-webkit-scrollbar {
+          width: 12px;
+        }
+
+        .studio-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .studio-scroll::-webkit-scrollbar-thumb {
+          border-radius: 9999px;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 225, 208, 0.98) 0%,
+            rgba(255, 122, 47, 0.72) 100%
+          );
+          border: 3px solid rgba(255, 255, 255, 0.95);
+          background-clip: padding-box;
+          box-shadow: 0 6px 18px rgba(255, 122, 47, 0.12);
+        }
+
+        .studio-scroll::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(
+            180deg,
+            rgba(255, 233, 220, 1) 0%,
+            rgba(255, 122, 47, 0.84) 100%
+          );
+          border: 3px solid rgba(255, 255, 255, 0.98);
+          background-clip: padding-box;
         }
 
         .done-border-light {
