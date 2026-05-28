@@ -64,7 +64,7 @@ export default function PricingSection() {
 
                     {isFeatured && (
                       <p className="mt-2 text-[12px] leading-[1.6] text-[#ff7a2f]">
-                        기존 2,900원에서 1,900원으로 할인 적용
+                        기존 4,900원에서 1,900원으로 할인 적용
                       </p>
                     )}
                   </div>
