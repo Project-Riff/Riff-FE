@@ -396,15 +396,15 @@ Return the result strictly conforming to the requested JSON schema.
       },
     });
 
-    await pushJobLog(jobId, "done", 100, "썸네일 후보 생성 완료");
+    await pushJobLog(jobId, "rendering", 99, "썸네일 후보 생성 완료");
 
     return preferred.url;
   } catch (error) {
     console.error("[Thumbnail] Error generating thumbnail:", error);
     await pushJobLog(
       jobId,
-      "done",
-      100,
+      "rendering",
+      99,
       `썸네일 생성 실패: ${
         error instanceof Error ? error.message : String(error)
       }`,

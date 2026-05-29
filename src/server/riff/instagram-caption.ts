@@ -4,6 +4,22 @@ import { getJob, patchJob, pushJobLog } from "./job-store";
 export async function generateInstagramCaption(jobId: string): Promise<string> {
   console.log(`[InstagramCaption] Starting for job=${jobId}`);
 
+  try {
+    return await runInstagramCaption(jobId);
+  } catch (error) {
+    await pushJobLog(
+      jobId,
+      "done",
+      100,
+      `인스타그램 본문 생성 실패: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    throw error;
+  }
+}
+
+async function runInstagramCaption(jobId: string): Promise<string> {
   const job = await getJob(jobId);
   if (!job) throw new Error("Job not found");
 
