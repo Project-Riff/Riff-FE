@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -82,13 +83,13 @@ export default function HeroSection() {
                 샘플 보기
               </a>
 
-              <a
-                href="#request"
+              <Link
+                href="/request"
                 className="inline-flex h-[42px] items-center gap-2 rounded-full border border-[#ededed] bg-white px-5 text-[13px] font-medium text-[#111] transition hover:bg-[#fafafa]"
               >
                 제작 문의
                 <ArrowRight size={13} />
-              </a>
+              </Link>
             </div>
           </motion.div>
 
