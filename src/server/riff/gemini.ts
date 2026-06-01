@@ -131,13 +131,9 @@ function loadPrompt(promptFileName: string, storeInfo?: StoreInfo) {
   const basePrompt = fs.readFileSync(filePath, "utf-8");
 
   const contextLines = [
-    storeInfo?.name ? `- 매장명: ${storeInfo.name}` : "",
     storeInfo?.address ? `- 주소: ${storeInfo.address}` : "",
     storeInfo?.subtitle ? `- 부제 참고 문구: ${storeInfo.subtitle}` : "",
     storeInfo?.strengths ? `- 가게 특장점: ${storeInfo.strengths}` : "",
-    storeInfo?.hours ? `- 영업시간: ${storeInfo.hours}` : "",
-    storeInfo?.phone ? `- 전화번호: ${storeInfo.phone}` : "",
-    storeInfo?.instagram ? `- 인스타그램: ${storeInfo.instagram}` : "",
   ].filter(Boolean);
 
   if (contextLines.length === 0) {
@@ -152,7 +148,7 @@ ${contextLines.join("\n")}
 
 [추가 규칙]
 - 위 매장 정보를 적극 반영하세요.
-- 매장명, 주소, 가게 특장점을 우선적으로 반영하세요.
+- 주소와 가게 특장점을 우선적으로 반영하세요.
 - 입력된 부제가 있으면 우선 참고하세요.
 `;
 }
@@ -1839,7 +1835,7 @@ function parseScriptResult(
     undefined;
   const narration =
     pickField(text, ["내레이션", "narration", "스크립트", "대본"]) ||
-    [storeInfo?.address, storeInfo?.name, storeInfo?.strengths]
+    [storeInfo?.address, storeInfo?.strengths]
       .filter(Boolean)
       .join(". ");
   const subtitleChunkRaw = pickField(text, [
@@ -1855,7 +1851,6 @@ function parseScriptResult(
         heroSubtitle ?? "",
         narration,
         storeInfo?.address ?? "",
-        storeInfo?.name ?? "",
         storeInfo?.strengths ?? "",
       ])
       : buildFallbackSubtitleChunks(narration, heroSubtitle);

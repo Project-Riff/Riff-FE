@@ -63,7 +63,7 @@ const SeoulLetters: React.FC<{ title: string }> = ({ title }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const centerX = width / 2;
-  const titleTop = height * 0.34;
+  const titleTop = height * 0.26;
   const isHangulTitle = hasHangul(title);
 
   if (isHangulTitle) {
@@ -148,7 +148,7 @@ export const OverlayVideo: React.FC = () => {
   const videoSrc = input.videoSrc?.startsWith("/")
     ? staticFile(input.videoSrc.replace(/^\//, ""))
     : input.videoSrc;
-  const subtitleTop = height * 0.38;
+  const subtitleTop = height * 0.30;
   const infoSubtitleTop = height * 0.65;
   const pretendardSemiBoldSrc = staticFile("fonts/Pretendard-SemiBold.otf");
   const currentSeconds = frame / fps;

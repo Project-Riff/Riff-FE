@@ -23,13 +23,10 @@ export type ResumeFrom =
 export type AnalysisMood = "energetic" | "cozy" | "premium" | "cute";
 
 export interface StoreInfo {
-  name?: string;
   address?: string;
   subtitle?: string;
   strengths?: string;
-  hours?: string;
-  phone?: string;
-  instagram?: string;
+  thumbnailTitle?: string;
 }
 
 export interface Segment {
@@ -97,6 +94,16 @@ export interface JobArtifacts {
   overlayPath?: string;
   finalPath?: string;
   finalUrl?: string;
+  thumbnailUrl?: string;
+  thumbnailPath?: string;
+  thumbnailCandidates?: Array<{
+    index: number;
+    url: string;
+    path: string;
+  }>;
+  thumbnailPreferredIndex?: number;
+  menuName?: string;
+  instagramCaption?: string;
   sfxDiagnostics?: Array<{
     presetId: string;
     matchedKeyword: string;

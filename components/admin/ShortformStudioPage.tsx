@@ -2,10 +2,12 @@
 
 import {
   ResumeFrom,
+  STAGE_LABELS,
   useShortformPipeline,
 } from "@/components/admin/useShortformPipeline";
 import {
   CheckCircle2,
+  ChevronRight,
   CircleDashed,
   Clock3,
   FileVideo2,
@@ -16,7 +18,18 @@ import {
   Subtitles,
   Wand2,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+
+function formatLogTime(ms: number) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 type PipelineVisualStatus = "done" | "active" | "idle";
 
@@ -295,7 +308,6 @@ function StageNode({
   index,
   nodeKey,
   title,
-  subtitle,
   status,
   accent,
   selected,
@@ -331,64 +343,85 @@ function StageNode({
     <button
       type="button"
       onClick={onClick}
-      className={`relative w-[96px] rounded-[26px] border px-3 py-3 text-center shadow-[0_10px_24px_rgba(0,0,0,0.035)] backdrop-blur-2xl ${
+      className={`relative w-[128px] rounded-[24px] border-2 px-2 pb-3.5 pt-4 text-center transition ${
         active
-          ? "border-[#ffcfb0] bg-white/92 shadow-[0_16px_34px_rgba(255,122,47,0.12)] ring-2 ring-[#fff2e7]"
+          ? "stage-active-glow border-[#ff7a2f] bg-gradient-to-br from-[#fff5ec] to-white"
           : done
-            ? "border-[#ffd8bc] bg-[linear-gradient(180deg,#ffffff_0%,#fff8f3_100%)] shadow-[0_14px_28px_rgba(255,122,47,0.08)] done-border-light"
-            : "border-slate-100/90 bg-white/80"
-      } ${selected ? "ring-2 ring-[#ffe7d7] shadow-[0_16px_30px_rgba(255,122,47,0.10)]" : ""} transition hover:-translate-y-0.5 hover:border-[#ffd8bc]`}
+            ? "border-[#ffd8bc] bg-[#fff8f3] shadow-[0_8px_18px_rgba(255,122,47,0.10)]"
+            : "border-slate-200/80 bg-white shadow-[0_4px_10px_rgba(15,23,42,0.04)]"
+      } ${selected ? "ring-4 ring-[#ffe7d7]" : ""} hover:-translate-y-0.5`}
     >
-      {done ? (
-        <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-[radial-gradient(circle_at_top,rgba(255,122,47,0.12),transparent_52%)]" />
-      ) : null}
-      {active ? (
+      {active && (
         <>
-          <div className="pointer-events-none absolute inset-[-8px] rounded-[30px] border border-[#ffd9bf] opacity-70" />
-          <div className="active-starfield pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]" />
+          <span className="stage-active-ring pointer-events-none absolute -inset-1.5 rounded-[28px] border-2 border-[#ff7a2f]" />
+          <span className="stage-active-ring-delay pointer-events-none absolute -inset-1.5 rounded-[28px] border-2 border-[#ffb98f]" />
+          <span className="stage-active-sweep pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]" />
         </>
-      ) : null}
-      {done ? (
-        <>
-          <div className="done-shimmer pointer-events-none absolute inset-0 rounded-[26px]" />
-          <div className="pointer-events-none absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-[#ff7a2f] shadow-[0_0_12px_rgba(255,122,47,0.9)] done-sparkle" />
-          <div className="pointer-events-none absolute bottom-3 left-4 h-1 w-1 rounded-full bg-[#ffb98f] shadow-[0_0_10px_rgba(255,185,143,0.9)] done-sparkle-delayed" />
-        </>
-      ) : null}
+      )}
 
-      <div className="absolute left-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#ffd8bc] bg-white/95 text-[10px] font-semibold text-[#ff7a2f] shadow-[0_5px_10px_rgba(255,122,47,0.10)]">
+      <div
+        className={`absolute -left-2.5 -top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold shadow-md ${
+          active
+            ? "stage-active-index bg-[#ff7a2f] text-white"
+            : done
+              ? "bg-[#ff7a2f] text-white"
+              : "border-2 border-slate-200 bg-white text-slate-400"
+        }`}
+      >
         {index}
       </div>
 
       <div
-        className={`mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-[15px] bg-gradient-to-br ${accent} p-[1px] shadow-[0_10px_18px_rgba(255,122,47,0.10)] ${active ? "animate-pulse" : ""}`}
+        className={`relative mx-auto mb-2.5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          active
+            ? `bg-gradient-to-br ${accent} stage-active-icon text-white shadow-[0_12px_24px_rgba(255,122,47,0.5)]`
+            : done
+              ? "border border-[#ffd8bc] bg-white text-[#ff7a2f]"
+              : "bg-slate-100 text-slate-400"
+        }`}
       >
-        <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-white text-slate-900">
-          <Icon className="h-4 w-4" />
-        </div>
+        <Icon className="h-7 w-7" />
+        {active && (
+          <span className="stage-active-icon-spark pointer-events-none absolute inset-0 rounded-2xl" />
+        )}
       </div>
 
-      <div className="space-y-1">
-        <h3 className="text-[9px] font-semibold leading-3.5 tracking-[-0.03em] text-slate-900">
-          {title}
-        </h3>
-        <p className="text-[8px] font-medium leading-3 text-slate-400">
-          {subtitle}
-        </p>
-      </div>
+      <h3
+        className={`relative text-[13px] font-bold leading-tight tracking-tight ${
+          active
+            ? "text-slate-900"
+            : done
+              ? "text-slate-700"
+              : "text-slate-400"
+        }`}
+      >
+        {title}
+      </h3>
 
-      <div className="mt-2.5 flex justify-center">
-        <StageBadge status={status} />
+      <div
+        className={`relative mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+          active
+            ? "stage-active-chip bg-[#ff7a2f] text-white"
+            : done
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-100 text-slate-400"
+        }`}
+      >
+        {active && (
+          <span className="stage-active-dot block h-1.5 w-1.5 rounded-full bg-white" />
+        )}
+        {active ? "진행 중" : done ? "완료" : "대기"}
       </div>
     </button>
   );
 }
 
 export default function ShortformStudioPage() {
-  const [showStoreFields, setShowStoreFields] = useState(false);
-  const [selectedStageKey, setSelectedStageKey] = useState<
-    (typeof pipelineStages)[number]["key"] | null
+  const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState<
+    number | null
   >(null);
+  const [captionCopied, setCaptionCopied] = useState(false);
+  const logScrollRef = useRef<HTMLDivElement | null>(null);
 
   const {
     fileRef,
@@ -414,27 +447,20 @@ export default function ShortformStudioPage() {
     isUploading,
     storeInfo,
     progress,
-    guide,
     stageText,
     updateStoreField,
     pickFile,
     handleUpload,
   } = useShortformPipeline();
 
+  const needsAnalysis = ["analysis", "script", "title", "subtitle-only", "subtitle"].includes(resumeFrom);
+  const needsSubtitle = ["subtitle", "tts", "body"].includes(resumeFrom);
+  const needsTts = ["title", "subtitle-only", "tts", "body"].includes(resumeFrom);
+  const needsBody = ["script", "title", "subtitle-only", "tts", "body"].includes(resumeFrom);
+
   const pipelineStatuses = deriveStageStatuses(job?.stage, job?.message);
   const currentStep = resolvePipelineStep(job?.stage, job?.message);
-  const currentStage = pipelineStages[currentStep - 1] ?? pipelineStages[0];
   const pipelinePercent = progress;
-  const effectiveSelectedStageKey = selectedStageKey ?? currentStage.key;
-  const selectedStageIndex = pipelineStages.findIndex(
-    (stage) => stage.key === effectiveSelectedStageKey,
-  );
-  const selectedStage = pipelineStages[selectedStageIndex] ?? pipelineStages[0];
-  const selectedStageStatus =
-    pipelineStatuses[selectedStageIndex] ?? ("idle" as PipelineVisualStatus);
-  const selectedSegments = job?.analysis?.segments ?? [];
-  const generatedTitle = job?.analysis?.title?.trim() ?? "";
-  const generatedNarration = job?.analysis?.narration?.trim() ?? "";
   const sweepStep =
     currentStep <= 0 ? 1 : Math.min(currentStep, stageNodePoints.length);
   const sweepEndX = stageNodePoints[sweepStep - 1].x + 320;
@@ -449,880 +475,887 @@ export default function ShortformStudioPage() {
     (waveTravelDurationSec / waveCount).toFixed(2),
   );
 
+  const jobLogs = job?.logs ?? [];
+
+  useEffect(() => {
+    if (logScrollRef.current) {
+      logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
+    }
+  }, [jobLogs.length]);
+
   return (
-    <main className="min-h-screen bg-white px-5 py-6 text-slate-900 md:px-8">
+    <main className="min-h-screen bg-white px-3 py-4 text-slate-900 md:px-8 md:py-6">
       <div className="mx-auto max-w-[1540px]">
         <div className="relative">
-          <div className="px-2 pb-1 pt-2">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <div className="mt-1">
-                  <h1 className="text-[28px] font-semibold tracking-[-0.05em] text-slate-950">
-                    Shortform Studio
-                  </h1>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2"></div>
-            </div>
-          </div>
-
-          <div className="grid min-h-[calc(100vh-140px)] grid-cols-1 gap-10 xl:items-start xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="min-h-[calc(100vh-80px)]">
             <section className="flex min-w-0 flex-col px-1">
-              <div className="relative flex-1 overflow-hidden rounded-[36px] bg-white px-6 py-7 shadow-[0_18px_44px_rgba(24,29,49,0.04)]">
+              <div className="relative flex-1 overflow-hidden rounded-[24px] md:rounded-[36px] border-2 border-slate-200 bg-white px-3 py-4 md:px-6 md:py-7 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
                 <div className="p-1">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Pipeline at a glance
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-lg font-bold tracking-[-0.02em] text-slate-900">
+                      Pipeline
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[28px] font-extrabold leading-none tracking-tight text-[#ff7a2f] tabular-nums">
+                        {pipelinePercent}
+                      </span>
+                      <span className="text-sm font-bold text-[#ff7a2f]">
+                        %
+                      </span>
                     </div>
                   </div>
 
                   <div className="grid gap-5">
-                    <div className="relative h-[402px] overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.99),rgba(255,252,248,0.96)_56%,rgba(252,248,243,0.88)_100%)]">
-                      <div className="absolute inset-0 -translate-y-[3%]">
-                        <svg
-                          viewBox="0 0 1000 402"
-                          className="pointer-events-none absolute inset-0 z-0 h-full w-full"
-                          aria-hidden="true"
-                        >
-                          <defs>
-                            <linearGradient
-                              id="pipelineLine"
-                              x1="0%"
-                              y1="0%"
-                              x2="100%"
-                              y2="100%"
+                    <div className="relative overflow-hidden rounded-[20px] md:rounded-[28px] border-2 border-slate-200 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.99),rgba(255,252,248,0.96)_56%,rgba(252,248,243,0.88)_100%)] px-2 py-3 md:px-4 md:py-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+                      <div
+                        className="pipeline-progress-fill pointer-events-none absolute inset-y-0 left-0 transition-[width] duration-700 ease-out"
+                        style={{ width: `${pipelinePercent}%` }}
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 bg-[#ff7a2f] shadow-[0_0_14px_rgba(255,122,47,0.85)] transition-[left] duration-700 ease-out"
+                        style={{ left: `${pipelinePercent}%`, opacity: pipelinePercent > 0 && pipelinePercent < 100 ? 1 : 0 }}
+                      />
+                      
+                      {/* Desktop Horizontal View */}
+                      <div className="relative z-10 hidden md:flex w-full items-center overflow-x-auto px-3 pb-3 pt-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        {pipelineStages.map((stage, idx) => {
+                          const isLast = idx === pipelineStages.length - 1;
+                          const status = pipelineStatuses[idx];
+                          const nextStatus = isLast
+                            ? undefined
+                            : pipelineStatuses[idx + 1];
+                          const connectorDone = status === "done";
+                          const connectorActive =
+                            status === "done" && nextStatus === "active";
+                          return (
+                            <Fragment key={stage.key}>
+                              <div className="shrink-0">
+                                <StageNode
+                                  index={idx + 1}
+                                  nodeKey={stage.key}
+                                  title={stage.title}
+                                  subtitle={stage.subtitle}
+                                  accent={stage.accent}
+                                  status={status}
+                                />
+                              </div>
+                              {!isLast && (
+                                <div className="flex min-w-[36px] flex-1 items-center gap-1.5 self-center px-2">
+                                  <div
+                                    className={`h-[5px] flex-1 rounded-full ${
+                                      connectorActive
+                                        ? "connector-active-flow"
+                                        : connectorDone
+                                          ? "bg-[#ff7a2f]"
+                                          : "bg-slate-200"
+                                    }`}
+                                  />
+                                  <ChevronRight
+                                    className={`h-5 w-5 shrink-0 ${
+                                      connectorActive
+                                        ? "connector-active-arrow text-[#ff7a2f]"
+                                        : connectorDone
+                                          ? "text-[#ff7a2f]"
+                                          : "text-slate-300"
+                                    }`}
+                                  />
+                                </div>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </div>
+
+                      {/* Mobile Grid View */}
+                      <div className="relative z-10 grid grid-cols-2 md:hidden gap-1.5 px-0.5 py-1">
+                        {pipelineStages.map((stage, idx) => {
+                          const status = pipelineStatuses[idx];
+                          const isActive = status === "active";
+                          const isDone = status === "done";
+                          return (
+                            <div
+                              key={stage.key}
+                              className={`flex items-center gap-1.5 rounded-lg border p-1.5 transition-all ${
+                                isActive
+                                  ? "border-[#ff7a2f] bg-[#fff5ec] text-[#d95d16] font-semibold shadow-[0_4px_12px_rgba(255,122,47,0.1)]"
+                                  : isDone
+                                    ? "border-emerald-200 bg-emerald-50/50 text-slate-700"
+                                    : "border-slate-100 bg-white text-slate-400"
+                              } ${idx === 6 ? "col-span-2" : ""}`}
                             >
-                              <stop
-                                offset="0%"
-                                stopColor="#f0ede8"
-                                stopOpacity="0.92"
-                              />
-                              <stop
-                                offset="58%"
-                                stopColor="#ffb98f"
-                                stopOpacity="0.88"
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor="#ff7a2f"
-                                stopOpacity="0.88"
-                              />
-                            </linearGradient>
-                            <linearGradient
-                              id="pipelineWaveTemplate"
-                              gradientUnits="userSpaceOnUse"
-                              x1="0"
-                              y1="0"
-                              x2="560"
-                              y2="0"
-                            >
-                              <stop
-                                offset="0%"
-                                stopColor="rgba(255,122,47,0)"
-                              />
-                              <stop
-                                offset="18%"
-                                stopColor="rgba(255,214,188,0.05)"
-                              />
-                              <stop
-                                offset="34%"
-                                stopColor="rgba(255,214,188,0.12)"
-                              />
-                              <stop
-                                offset="48%"
-                                stopColor="rgba(255,185,143,0.26)"
-                              />
-                              <stop
-                                offset="58%"
-                                stopColor="rgba(255,122,47,0.86)"
-                              />
-                              <stop
-                                offset="70%"
-                                stopColor="rgba(255,185,143,0.24)"
-                              />
-                              <stop
-                                offset="84%"
-                                stopColor="rgba(255,214,188,0.1)"
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor="rgba(255,122,47,0)"
-                              />
-                            </linearGradient>
-                            {Array.from({ length: waveCount }).map(
-                              (_, waveIndex) => (
-                                <linearGradient
-                                  key={`pipelineWaveSweep-${waveIndex}`}
-                                  id={`pipelineWaveSweep-${waveIndex}`}
-                                  href="#pipelineWaveTemplate"
-                                  gradientUnits="userSpaceOnUse"
-                                  x1="0"
-                                  y1="0"
-                                  x2="560"
-                                  y2="0"
+                              <span
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                                  isActive
+                                    ? "bg-[#ff7a2f] text-white animate-pulse"
+                                    : isDone
+                                      ? "bg-emerald-500 text-white"
+                                      : "bg-slate-100 text-slate-400"
+                                }`}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[11px] leading-tight font-bold">
+                                  {stage.title}
+                                </p>
+                                <p
+                                  className={`truncate text-[9px] mt-0.5 ${
+                                    isActive
+                                      ? "text-[#d95d16]/80 font-medium"
+                                      : isDone
+                                        ? "text-emerald-600 font-medium"
+                                        : "text-slate-400"
+                                  }`}
                                 >
-                                  <animateTransform
-                                    attributeName="gradientTransform"
-                                    type="translate"
-                                    from={`${sweepStartX} 0`}
-                                    to={`${sweepEndX} 0`}
-                                    dur={`${waveTravelDurationSec}s`}
-                                    begin={`${waveIndex * waveStartGapSec}s`}
-                                    repeatCount="indefinite"
-                                  />
-                                </linearGradient>
-                              ),
-                            )}
-                            <filter
-                              id="pipelineGlow"
-                              x="-20%"
-                              y="-20%"
-                              width="140%"
-                              height="140%"
-                            >
-                              <feGaussianBlur
-                                stdDeviation="7.2"
-                                result="blur"
-                              />
-                              <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                              </feMerge>
-                            </filter>
-                            <filter
-                              id="softBranchGlow"
-                              x="-30%"
-                              y="-30%"
-                              width="160%"
-                              height="160%"
-                            >
-                              <feGaussianBlur
-                                stdDeviation="4.8"
-                                result="blur"
-                              />
-                              <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                              </feMerge>
-                            </filter>
-                            <filter
-                              id="ambientGlow"
-                              x="-30%"
-                              y="-30%"
-                              width="160%"
-                              height="160%"
-                            >
-                              <feGaussianBlur stdDeviation="14" result="blur" />
-                              <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                              </feMerge>
-                            </filter>
-                          </defs>
-
-                          {orderedMainSegments.map((path, index) => {
-                            const leftStatus = pipelineStatuses[index];
-                            const rightStatus = pipelineStatuses[index + 1];
-                            const segmentStatus =
-                              leftStatus === "done" && rightStatus === "done"
-                                ? "done"
-                                : leftStatus === "done" &&
-                                    rightStatus === "active"
-                                  ? "active"
-                                  : "idle";
-
-                            return (
-                              <g key={`main-${index}`}>
-                                <path
-                                  d={path.d}
-                                  fill="none"
-                                  stroke="url(#pipelineLine)"
-                                  strokeWidth={path.width}
-                                  strokeLinecap="round"
-                                  opacity={
-                                    segmentStatus === "idle" ? 0.42 : 0.92
-                                  }
-                                  filter="url(#pipelineGlow)"
-                                />
-                                {segmentStatus !== "idle" ? (
-                                  <>
-                                    {Array.from({ length: waveCount }).map(
-                                      (_, waveIndex) => (
-                                        <path
-                                          key={`wave-${index}-${waveIndex}`}
-                                          d={path.d}
-                                          fill="none"
-                                          stroke={`url(#pipelineWaveSweep-${waveIndex})`}
-                                          strokeWidth={path.width + 0.42}
-                                          strokeLinecap="round"
-                                          className={
-                                            segmentStatus === "done"
-                                              ? "pipeline-wave-done"
-                                              : "pipeline-wave-active"
-                                          }
-                                          filter="url(#pipelineGlow)"
-                                        />
-                                      ),
-                                    )}
-                                  </>
-                                ) : null}
-                                <path
-                                  d={path.d}
-                                  fill="none"
-                                  stroke="rgba(255,255,255,0.72)"
-                                  strokeWidth={Math.max(1, path.width - 2.6)}
-                                  strokeLinecap="round"
-                                  opacity={
-                                    segmentStatus === "idle" ? 0.18 : 0.28
-                                  }
-                                />
-                              </g>
-                            );
-                          })}
-                          {orderedSupportSegments.map((segment, index) => {
-                            return (
-                              <g key={`support-${index}`}>
-                                {segment.map((path, subIndex) => (
-                                <path
-                                    key={`support-${index}-${subIndex}`}
-                                    d={path.d}
-                                    fill="none"
-                                    stroke="url(#pipelineLine)"
-                                    strokeWidth={path.width}
-                                    strokeLinecap="round"
-                                    opacity={path.opacity}
-                                  />
-                                ))}
-                              </g>
-                            );
-                          })}
-
-                          {stageNodePoints.map(({ x: cx, y: cy }, index) => (
-                            <g key={`${cx}-${cy}`}>
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r="10"
-                                fill="#fff"
-                                stroke={
-                                  pipelineStatuses[index] === "idle"
-                                    ? "#efe7dc"
-                                    : "#ffd7bc"
-                                }
-                                strokeWidth="3"
-                              />
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r="4.5"
-                                fill={
-                                  pipelineStatuses[index] === "active"
-                                    ? "#ff7a2f"
-                                    : pipelineStatuses[index] === "done"
-                                      ? "#ffb98f"
-                                      : "#d9cdc1"
-                                }
-                                className={
-                                  pipelineStatuses[index] === "active"
-                                    ? "animate-pulse"
-                                    : ""
-                                }
-                              />
-                            </g>
-                          ))}
-
-                          {[
-                            [332, 68],
-                            [549, 108],
-                            [744, 132],
-                            [720, 281],
-                            [501, 292],
-                            [285, 342],
-                            [208, 198],
-                            [432, 192],
-                          ].map(([cx, cy], index) => (
-                            <circle
-                              key={`spark-${index}`}
-                              cx={cx}
-                              cy={cy}
-                              r="3.5"
-                              fill={index % 2 === 0 ? "#ffd1ab" : "#ffb98f"}
-                              opacity="0.72"
-                              filter="url(#ambientGlow)"
-                            />
-                          ))}
-                        </svg>
-
-                        <div className="absolute left-[18.7%] top-[8.5%] z-10">
-                          <StageNode
-                            index={2}
-                            nodeKey={pipelineStages[1].key}
-                            title={pipelineStages[1].title}
-                            subtitle={pipelineStages[1].subtitle}
-                            accent={pipelineStages[1].accent}
-                            status={pipelineStatuses[1]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[1].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[1].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[41.9%] top-[5.1%] z-10">
-                          <StageNode
-                            index={4}
-                            nodeKey={pipelineStages[3].key}
-                            title={pipelineStages[3].title}
-                            subtitle={pipelineStages[3].subtitle}
-                            accent={pipelineStages[3].accent}
-                            status={pipelineStatuses[3]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[3].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[3].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[64.5%] top-[9.8%] z-10">
-                          <StageNode
-                            index={6}
-                            nodeKey={pipelineStages[5].key}
-                            title={pipelineStages[5].title}
-                            subtitle={pipelineStages[5].subtitle}
-                            accent={pipelineStages[5].accent}
-                            status={pipelineStatuses[5]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[5].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[5].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[80.1%] top-[38.4%] z-10">
-                          <StageNode
-                            index={7}
-                            nodeKey={pipelineStages[6].key}
-                            title={pipelineStages[6].title}
-                            subtitle={pipelineStages[6].subtitle}
-                            accent={pipelineStages[6].accent}
-                            status={pipelineStatuses[6]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[6].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[6].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[10.1%] top-[60.7%] z-10">
-                          <StageNode
-                            index={1}
-                            nodeKey={pipelineStages[0].key}
-                            title={pipelineStages[0].title}
-                            subtitle={pipelineStages[0].subtitle}
-                            accent={pipelineStages[0].accent}
-                            status={pipelineStatuses[0]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[0].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[0].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[33.7%] top-[66.8%] z-10">
-                          <StageNode
-                            index={3}
-                            nodeKey={pipelineStages[2].key}
-                            title={pipelineStages[2].title}
-                            subtitle={pipelineStages[2].subtitle}
-                            accent={pipelineStages[2].accent}
-                            status={pipelineStatuses[2]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[2].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[2].key)
-                            }
-                          />
-                        </div>
-                        <div className="absolute left-[57.2%] top-[59.6%] z-10">
-                          <StageNode
-                            index={5}
-                            nodeKey={pipelineStages[4].key}
-                            title={pipelineStages[4].title}
-                            subtitle={pipelineStages[4].subtitle}
-                            accent={pipelineStages[4].accent}
-                            status={pipelineStatuses[4]}
-                            selected={
-                              effectiveSelectedStageKey ===
-                              pipelineStages[4].key
-                            }
-                            onClick={() =>
-                              setSelectedStageKey(pipelineStages[4].key)
-                            }
-                          />
-                        </div>
+                                  {isActive ? "진행 중" : isDone ? "완료" : "대기"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    <div className="mt-1 flex items-center justify-between gap-3 rounded-2xl bg-[#faf9f6] px-4 py-3">
-                      <div className="text-sm text-slate-500">
-                        Active stage:{" "}
-                        <span className="font-semibold text-slate-900">
-                          {currentStage.title}
-                        </span>
+                    <div className="grid gap-3 xl:grid-cols-[1fr_1fr]">
+                      <div className="rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5">
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          onChange={(e) => pickFile(e.target.files?.[0])}
+                        />
+                        <input
+                          ref={analysisRef}
+                          type="file"
+                          accept=".json,application/json"
+                          className="hidden"
+                          onChange={(e) => setAnalysisFile(e.target.files?.[0] ?? null)}
+                        />
+                        <input
+                          ref={subtitleRef}
+                          type="file"
+                          accept=".srt,.vtt,.txt"
+                          className="hidden"
+                          onChange={(e) => setSubtitleFile(e.target.files?.[0] ?? null)}
+                        />
+                        <input
+                          ref={ttsRef}
+                          type="file"
+                          accept=".wav,audio/wav"
+                          className="hidden"
+                          onChange={(e) => setTtsFile(e.target.files?.[0] ?? null)}
+                        />
+                        <input
+                          ref={bodyRef}
+                          type="file"
+                          accept="video/*"
+                          className="hidden"
+                          onChange={(e) => setBodyFile(e.target.files?.[0] ?? null)}
+                        />
+
+                        <div className="mb-2.5 flex items-center justify-between gap-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d99567]">
+                            Input Console
+                          </div>
+                          <select
+                            value={resumeFrom}
+                            onChange={(e) =>
+                              setResumeFrom(e.target.value as ResumeFrom)
+                            }
+                            className="max-w-[230px] truncate rounded-lg border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] outline-none transition focus:border-[#ff7a2f]"
+                          >
+                            <option value="full">처음부터 다시 만들기</option>
+                            <option value="analysis">
+                              기존 분석 결과로 다시 만들기
+                            </option>
+                            <option value="script">
+                              컷은 유지하고 문구만 다시 만들기
+                            </option>
+                            <option value="title">
+                              주소 기준 제목만 다시 적용하기
+                            </option>
+                            <option value="subtitle-only">
+                              부제만 다시 적용하기
+                            </option>
+                            <option value="subtitle">
+                              기존 분석 + 자막 기준으로 다시 만들기
+                            </option>
+                            <option value="tts">
+                              기존 자막 + TTS로 영상만 다시 만들기
+                            </option>
+                            <option value="body">최종 합성만 다시 하기</option>
+                          </select>
+                        </div>
+
+                        {error ? (
+                          <div className="mb-2 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium leading-5 text-red-700">
+                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                              !
+                            </span>
+                            <span className="flex-1">{error}</span>
+                          </div>
+                        ) : null}
+
+                        {uploadNotice ? (
+                          <div className="mb-2 rounded-xl border border-[#ffd8bc] bg-[#fff8f3] px-3 py-2 text-[11px] leading-[16px] text-[#b5541c]">
+                            {uploadNotice}
+                          </div>
+                        ) : null}
+
+                        <div className="grid gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            className="flex items-center gap-2.5 rounded-xl border-2 border-[#ff7a2f] bg-gradient-to-br from-[#fff5ec] via-white to-white px-3 py-2 text-left text-xs font-semibold text-[#d95d16] shadow-[0_8px_18px_rgba(255,122,47,0.14)] transition hover:-translate-y-0.5"
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ff7a2f] text-white">
+                              <FileVideo2 className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {pickedFile?.name || "원본 영상 업로드"}
+                            </span>
+                          </button>
+
+                          <div className="rounded-xl border border-[#ffd8bc] bg-[#fffaf6] p-2">
+                            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#d95d16]">
+                              매장 정보
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <input
+                                value={storeInfo.address}
+                                onChange={(e) =>
+                                  updateStoreField("address", e.target.value)
+                                }
+                                placeholder="주소"
+                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
+                              />
+                              <input
+                                value={storeInfo.subtitle}
+                                onChange={(e) =>
+                                  updateStoreField("subtitle", e.target.value)
+                                }
+                                placeholder="부제"
+                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
+                              />
+                              <input
+                                value={storeInfo.strengths}
+                                onChange={(e) =>
+                                  updateStoreField("strengths", e.target.value)
+                                }
+                                placeholder="가게 특장점"
+                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
+                              />
+                              <input
+                                value={storeInfo.thumbnailTitle || ""}
+                                onChange={(e) =>
+                                  updateStoreField(
+                                    "thumbnailTitle",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="썸네일 제목 (공란 시 AI)"
+                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
+                              />
+                            </div>
+                          </div>
+
+                          {(needsAnalysis ||
+                            needsSubtitle ||
+                            needsTts ||
+                            needsBody) && (
+                            <div className="rounded-xl border border-dashed border-[#ffd8bc] bg-[#fffaf6] p-2">
+                              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#d95d16]">
+                                재실행 파일
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {needsAnalysis && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      analysisRef.current?.click()
+                                    }
+                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
+                                  >
+                                    {analysisFile?.name || "analysis.json"}
+                                  </button>
+                                )}
+                                {needsSubtitle && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      subtitleRef.current?.click()
+                                    }
+                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
+                                  >
+                                    {subtitleFile?.name || "subtitles.srt"}
+                                  </button>
+                                )}
+                                {needsTts && (
+                                  <button
+                                    type="button"
+                                    onClick={() => ttsRef.current?.click()}
+                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
+                                  >
+                                    {ttsFile?.name || "tts.wav"}
+                                  </button>
+                                )}
+                                {needsBody && (
+                                  <button
+                                    type="button"
+                                    onClick={() => bodyRef.current?.click()}
+                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
+                                  >
+                                    {bodyFile?.name || "body.mp4"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={handleUpload}
+                            disabled={isUploading}
+                            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#ff7a2f] to-[#ff5e15] px-3 py-2.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(255,122,47,0.28)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isUploading ? (
+                              <>
+                                <Sparkles className="h-4 w-4 animate-pulse" />
+                                처리 중...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3.5 w-3.5 fill-white" />
+                                작업 시작
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-500">
-                        Progress:{" "}
-                        <span className="font-semibold text-slate-900">
-                          {pipelinePercent}%
-                        </span>
+
+                      <div className="flex flex-col rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d99567]">
+                              Latest Job
+                            </div>
+                            {job && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff0e6] px-2 py-0.5 text-[10px] font-bold text-[#d95d16]">
+                                <span className="block h-1.5 w-1.5 rounded-full bg-[#ff7a2f] stage-active-dot" />
+                                LIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] font-medium text-slate-400">
+                            {jobLogs.length > 0 ? `${jobLogs.length}건` : "-"}
+                          </div>
+                        </div>
+
+                        <div className="mb-2 flex items-baseline gap-1.5 text-xs">
+                          <span className="font-mono font-semibold text-slate-900">
+                            {jobId ? `#${jobId}` : "-"}
+                          </span>
+                          <span className="truncate text-[#d95d16]">
+                            {job
+                              ? `${stageText} · ${progress}%`
+                              : "아직 실행된 작업이 없습니다"}
+                          </span>
+                        </div>
+
+                        <div
+                          ref={logScrollRef}
+                          className="flex-1 space-y-1.5 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#ff7a2f]"
+                          style={{ maxHeight: 320 }}
+                        >
+                          {jobLogs.length === 0 ? (
+                            <div className="flex h-[160px] items-center justify-center text-[11px] leading-5 text-slate-300">
+                              작업을 시작하면 로그가 기록됩니다
+                            </div>
+                          ) : (
+                            jobLogs.map((log, i) => {
+                              const isError = log.stage === "error";
+                              const isDone = log.stage === "done";
+                              const stageLabel =
+                                STAGE_LABELS[log.stage] || log.stage;
+                              const dotColor = isError
+                                ? "bg-red-500"
+                                : isDone
+                                  ? "bg-emerald-500"
+                                  : "bg-[#ff7a2f]";
+                              const stageColor = isError
+                                ? "text-red-600"
+                                : isDone
+                                  ? "text-emerald-700"
+                                  : "text-slate-800";
+                              return (
+                                <div
+                                  key={`${log.t}-${i}`}
+                                  className="flex gap-2 rounded-lg px-1.5 py-1 hover:bg-[#fffaf6]"
+                                >
+                                  <span
+                                    className={`mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <span
+                                        className={`truncate text-[11px] font-semibold ${stageColor}`}
+                                      >
+                                        {stageLabel}
+                                      </span>
+                                      <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-400">
+                                        {formatLogTime(log.t)} · {log.progress}%
+                                      </span>
+                                    </div>
+                                    {log.message && (
+                                      <div className="mt-0.5 text-[10.5px] leading-[15px] text-slate-500">
+                                        {log.message}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 rounded-[30px] bg-white px-5 py-6 shadow-[0_18px_44px_rgba(24,29,49,0.04)]">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => pickFile(e.target.files?.[0])}
-                />
-                <input
-                  ref={analysisRef}
-                  type="file"
-                  accept=".json,application/json"
-                  className="hidden"
-                  onChange={(e) => setAnalysisFile(e.target.files?.[0] ?? null)}
-                />
-                <input
-                  ref={subtitleRef}
-                  type="file"
-                  accept=".srt,.vtt,.txt"
-                  className="hidden"
-                  onChange={(e) => setSubtitleFile(e.target.files?.[0] ?? null)}
-                />
-                <input
-                  ref={ttsRef}
-                  type="file"
-                  accept=".wav,audio/wav"
-                  className="hidden"
-                  onChange={(e) => setTtsFile(e.target.files?.[0] ?? null)}
-                />
-                <input
-                  ref={bodyRef}
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => setBodyFile(e.target.files?.[0] ?? null)}
-                />
-
-                <div className="mb-5 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      Input Console
-                    </div>
-                    <div className="mt-2 text-xl font-semibold tracking-[-0.03em] text-slate-950">
-                      하단에서 바로 작업 생성
-                    </div>
+              <div className="mt-6 rounded-[30px] border-2 border-slate-200 bg-white px-5 py-6 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="text-lg font-bold tracking-[-0.02em] text-slate-900">
+                    Result Preview
+                  </div>
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
+                    Final
                   </div>
                 </div>
 
-                <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr_0.82fr_0.95fr]">
-                  <div className="rounded-[24px] bg-white/92 p-5 shadow-[0_12px_24px_rgba(32,36,61,0.035)]">
-                    <div className="mb-3 text-sm font-semibold text-slate-900">
-                      Start Mode
-                    </div>
-                    <select
-                      value={resumeFrom}
-                      onChange={(e) =>
-                        setResumeFrom(e.target.value as ResumeFrom)
-                      }
-                      className="w-full rounded-2xl border border-black/6 bg-[#f8f7f4] px-3 py-3 text-sm text-slate-700 outline-none transition focus:border-[#ffcfb0] focus:bg-white"
-                    >
-                      <option value="full">처음부터 다시 만들기</option>
-                      <option value="analysis">
-                        기존 분석 결과로 다시 만들기
-                      </option>
-                      <option value="script">
-                        컷은 유지하고 문구만 다시 만들기
-                      </option>
-                      <option value="title">
-                        주소 기준 제목만 다시 적용하기
-                      </option>
-                      <option value="subtitle-only">
-                        부제만 다시 적용하기
-                      </option>
-                      <option value="subtitle">
-                        기존 분석 + 자막 기준으로 다시 만들기
-                      </option>
-                      <option value="tts">
-                        기존 자막 + TTS로 영상만 다시 만들기
-                      </option>
-                      <option value="body">최종 합성만 다시 하기</option>
-                    </select>
-                    <div className="mt-4 rounded-2xl bg-[#fffaf6] px-3 py-3 text-xs leading-5 text-[#b5541c]">
-                      {guide.desc}
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {guide.required.map((chip) => (
-                        <span
-                          key={chip}
-                          className="rounded-full border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-medium text-[#d95d16]"
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[24px] bg-white/92 p-5 shadow-[0_12px_24px_rgba(32,36,61,0.035)]">
-                    <div className="mb-3 text-sm font-semibold text-slate-900">
-                      Upload & Metadata
-                    </div>
-                    <div className="grid gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        className="rounded-2xl border border-dashed border-black/10 bg-[#faf8f5] px-3 py-3 text-left text-sm text-slate-500"
-                      >
-                        {pickedFile?.name || "원본 영상 업로드"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => analysisRef.current?.click()}
-                        className="rounded-2xl border border-dashed border-black/10 bg-[#faf8f5] px-3 py-3 text-left text-sm text-slate-500"
-                      >
-                        {analysisFile?.name || "analysis.json 선택"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => subtitleRef.current?.click()}
-                        className="rounded-2xl border border-dashed border-black/10 bg-[#faf8f5] px-3 py-3 text-left text-sm text-slate-500"
-                      >
-                        {subtitleFile?.name || "subtitles.srt 선택"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => ttsRef.current?.click()}
-                        className="rounded-2xl border border-dashed border-black/10 bg-[#faf8f5] px-3 py-3 text-left text-sm text-slate-500"
-                      >
-                        {ttsFile?.name || "tts.wav 선택"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => bodyRef.current?.click()}
-                        className="rounded-2xl border border-dashed border-black/10 bg-[#faf8f5] px-3 py-3 text-left text-sm text-slate-500"
-                      >
-                        {bodyFile?.name || "body.mp4 선택"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowStoreFields((prev) => !prev)}
-                        className="rounded-2xl border border-[#ffd8bc] bg-white px-3 py-3 text-left text-sm font-medium text-[#d95d16] transition hover:bg-[#fffaf6]"
-                      >
-                        {showStoreFields
-                          ? "매장 정보 입력 닫기"
-                          : "매장 정보 입력"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[24px] bg-white/92 p-5 shadow-[0_12px_24px_rgba(32,36,61,0.035)]">
-                    <div className="mb-3 text-sm font-semibold text-slate-900">
-                      Action Panel
-                    </div>
-                    <div className="space-y-3">
-                      <button
-                        type="button"
-                        onClick={handleUpload}
-                        disabled={isUploading}
-                        className="w-full rounded-2xl border border-[#ffd8bc] bg-white px-4 py-3 text-sm font-semibold text-[#d95d16] shadow-[0_16px_32px_rgba(255,122,47,0.08)] disabled:opacity-50"
-                      >
-                        {isUploading ? "처리 중..." : "작업 시작"}
-                      </button>
-                      <div className="rounded-2xl bg-[#faf8f5] px-3 py-3">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d99567]">
-                          Latest Job
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-slate-900">
-                          {jobId ? `#${jobId}` : "-"}
-                        </div>
-                        <div className="mt-1 text-xs text-[#d95d16]">
-                          {job
-                            ? `${stageText} · ${progress}%`
-                            : "아직 실행된 작업이 없습니다"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[24px] bg-white/92 p-5 shadow-[0_12px_24px_rgba(32,36,61,0.035)]">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-900">
-                        Result Preview
-                      </div>
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                        Final
-                      </div>
-                    </div>
-
-                    {job?.artifacts?.finalUrl ? (
-                      <div className="space-y-3">
-                        <div className="overflow-hidden rounded-[22px] border border-black/8 bg-black">
-                          <video
-                            key={job.artifacts.finalUrl}
-                            src={job.artifacts.finalUrl}
-                            controls
-                            playsInline
-                            className="w-full bg-black"
-                          />
+                {job?.artifacts?.finalUrl ? (
+                  <div className="mx-auto max-w-[1200px]">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-slate-900">
+                          아웃풋 영상
                         </div>
                         <a
                           href={job.artifacts.finalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center rounded-2xl border border-[#ffd8bc] bg-white px-3 py-2 text-sm font-medium text-[#d95d16] transition hover:bg-[#fffaf6]"
+                          download={`${job.artifacts.menuName || jobId}.mp4`}
+                          className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
                         >
-                          새 창에서 보기
+                          다운로드
                         </a>
                       </div>
-                    ) : (
-                      <div className="flex aspect-[9/16] w-full items-center justify-center rounded-[22px] border border-dashed border-black/10 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
-                        최종 렌더가 완료되면
-                        <br />이 영역에 영상이 표시됩니다
+                      <div className="mx-auto max-w-[280px] overflow-hidden rounded-[18px] border border-black/8 bg-black">
+                        <video
+                          key={job.artifacts.finalUrl}
+                          src={job.artifacts.finalUrl}
+                          controls
+                          playsInline
+                          className="w-full bg-black"
+                        />
+                      </div>
+                      <a
+                        href={job.artifacts.finalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2.5 inline-flex items-center rounded-xl border border-black/10 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50"
+                      >
+                        새 창에서 보기
+                      </a>
+                    </div>
+
+                    {job?.artifacts?.thumbnailUrl ? (() => {
+                      const candidates =
+                        job.artifacts.thumbnailCandidates &&
+                        job.artifacts.thumbnailCandidates.length > 0
+                          ? job.artifacts.thumbnailCandidates
+                          : [
+                              {
+                                index: 0,
+                                url: job.artifacts.thumbnailUrl,
+                                path: "",
+                              },
+                            ];
+
+                      const preferredIndex =
+                        typeof job.artifacts.thumbnailPreferredIndex ===
+                        "number"
+                          ? job.artifacts.thumbnailPreferredIndex
+                          : candidates[0].index;
+
+                      const activeIndex =
+                        selectedThumbnailIndex !== null &&
+                        candidates.some(
+                          (c) => c.index === selectedThumbnailIndex,
+                        )
+                          ? selectedThumbnailIndex
+                          : preferredIndex;
+
+                      const activeCandidate =
+                        candidates.find((c) => c.index === activeIndex) ??
+                        candidates[0];
+
+                      return (
+                        <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
+                          <div className="mb-2.5 flex items-center justify-between">
+                            <div className="text-sm font-semibold text-slate-900">
+                              썸네일
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-[11px] text-slate-400">
+                                {candidates.length}개
+                              </div>
+                              <a
+                                href={activeCandidate.url}
+                                download={`${job.artifacts.menuName || jobId}.jpg`}
+                                className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
+                              >
+                                다운로드
+                              </a>
+                            </div>
+                          </div>
+                          <div className="relative mx-auto mb-2.5 aspect-[9/16] w-full max-w-[280px] overflow-hidden rounded-[18px] border border-black/8 bg-[#faf8f5]">
+                            <img
+                              key={activeCandidate.url}
+                              src={activeCandidate.url}
+                              className="w-full h-full object-cover"
+                              alt="썸네일 미리보기"
+                            />
+                          </div>
+                          {candidates.length > 1 && (
+                            <div className="mx-auto grid max-w-[280px] grid-cols-5 gap-1.5">
+                              {candidates.map((c) => {
+                                const isActive = c.index === activeIndex;
+                                const isPreferred =
+                                  c.index === preferredIndex;
+                                return (
+                                  <button
+                                    key={c.index}
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedThumbnailIndex(c.index)
+                                    }
+                                    className={`relative aspect-[9/16] overflow-hidden rounded-lg border-2 transition ${
+                                      isActive
+                                        ? "border-[#ff7a2f] shadow-[0_6px_14px_rgba(255,122,47,0.25)]"
+                                        : "border-transparent opacity-80 hover:opacity-100 hover:border-[#ffd8bc]"
+                                    }`}
+                                  >
+                                    <img
+                                      src={c.url}
+                                      className="w-full h-full object-cover"
+                                      alt={`후보 ${c.index + 1}`}
+                                    />
+                                    {isPreferred && !isActive && (
+                                      <span className="absolute left-0.5 top-0.5 rounded bg-black/55 px-1 py-px text-[8px] font-semibold text-white">
+                                        추천
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })() : (
+                      <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-200 bg-[#faf8f5] p-4 text-center text-sm text-slate-400">
+                        썸네일이 아직 생성되지 않았습니다
                       </div>
                     )}
-                  </div>
-                </div>
 
-                {uploadNotice ? (
-                  <div className="mt-4 rounded-2xl border border-[#ffd8bc] bg-[#fff8f3] px-4 py-3 text-xs leading-5 text-[#b5541c]">
-                    {uploadNotice}
+                    {job?.artifacts?.instagramCaption ? (
+                      <div className="flex flex-col rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
+                        <div className="mb-2.5 flex items-center justify-between">
+                          <div className="text-sm font-semibold text-slate-900">
+                            인스타 본문
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(
+                                  job.artifacts!.instagramCaption!,
+                                );
+                                setCaptionCopied(true);
+                                setTimeout(
+                                  () => setCaptionCopied(false),
+                                  1800,
+                                );
+                              } catch (err) {
+                                console.error("clipboard error:", err);
+                              }
+                            }}
+                            className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
+                          >
+                            {captionCopied ? "복사됨" : "본문 복사"}
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto rounded-[18px] border border-black/8 bg-[#faf8f5] px-3.5 py-3">
+                          <pre className="whitespace-pre-wrap break-words font-[inherit] text-[12.5px] leading-6 text-slate-700">
+                            {job.artifacts.instagramCaption}
+                          </pre>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-200 bg-[#faf8f5] p-4 text-center text-sm text-slate-400">
+                        인스타 본문이 아직 생성되지 않았습니다
+                      </div>
+                    )}
+                    </div>
                   </div>
-                ) : null}
-
-                {error ? (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-600">
-                    {error}
+                ) : (
+                  <div className="mx-auto max-w-[1200px]">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
+                        아웃풋 영상이
+                        <br />여기에 표시됩니다
+                      </div>
+                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
+                        썸네일이
+                        <br />여기에 표시됩니다
+                      </div>
+                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
+                        인스타 본문이
+                        <br />여기에 표시됩니다
+                      </div>
+                    </div>
                   </div>
-                ) : null}
+                )}
               </div>
             </section>
 
-            <aside className="self-start px-3 py-6 xl:sticky xl:top-6 xl:pt-[78px]">
-              <div className="flex h-[720px] min-h-0 flex-col overflow-hidden rounded-[28px] bg-white/72 px-1">
-                <div className="border-l border-[#f1e8df] pl-5">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                    Selected Stage
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <h2 className="text-[30px] font-semibold tracking-[-0.05em] text-slate-950">
-                      {selectedStage.title}
-                    </h2>
-                    <StageBadge status={selectedStageStatus} />
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    {selectedStage.subtitle}
-                  </p>
-                </div>
-
-                <div className="mt-8 flex min-h-0 flex-1 flex-col border-l border-[#f6eee7] pl-5">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300">
-                    <Clock3 className="h-3.5 w-3.5 text-[#ff7a2f]" />
-                    Diagnostics
-                  </div>
-
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                        Current
-                      </div>
-                      <div className="mt-1 text-sm font-medium text-slate-700">
-                        {stageText}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                        Progress
-                      </div>
-                      <div className="mt-1 text-sm font-medium text-slate-700">
-                        {pipelinePercent}%
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                        Latest status
-                      </div>
-                      <div className="mt-1 text-sm leading-6 text-slate-500">
-                        {job?.message ?? "아직 실행 전"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="studio-scroll mt-6 h-0 min-h-0 flex-1 overflow-y-auto pr-2">
-                    {effectiveSelectedStageKey === "hooks" ? (
-                      <div className="pb-2 pt-2">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                          Selected Segments
-                        </div>
-                        {selectedSegments.length > 0 ? (
-                          <div className="mt-3 space-y-3">
-                            {selectedSegments.map((segment, index) => (
-                              <div
-                                key={`${segment.start}-${segment.end}-${index}`}
-                                className="rounded-2xl bg-[#faf8f5] px-3 py-3"
-                              >
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d99567]">
-                                  {formatSegmentTime(segment.start)} -{" "}
-                                  {formatSegmentTime(segment.end)}
-                                </div>
-                                <div className="mt-1 text-sm leading-6 text-slate-700">
-                                  {segment.label ?? "선택된 구간"}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-sm leading-6 text-slate-400">
-                            컷 분석이 완료되면 선택된 구간이 표시됩니다.
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                    {effectiveSelectedStageKey === "script" ? (
-                      <div className="pb-2 pt-2">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                          Generated Script
-                        </div>
-                        {generatedTitle || generatedNarration ? (
-                          <div className="mt-3 rounded-2xl bg-[#faf8f5] px-4 py-4">
-                            {generatedTitle ? (
-                              <div className="text-sm font-semibold text-slate-900">
-                                {generatedTitle}
-                              </div>
-                            ) : null}
-                            <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                              {generatedNarration ||
-                                "아직 생성된 대본이 없습니다."}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-sm leading-6 text-slate-400">
-                            문구 생성이 완료되면 제목과 대본이 표시됩니다.
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </aside>
           </div>
         </div>
       </div>
 
-      {showStoreFields ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,17,17,0.28)] px-4 backdrop-blur-[6px]">
-          <div className="w-full max-w-[760px] rounded-[32px] border border-black/6 bg-white p-6 shadow-[0_30px_80px_rgba(0,0,0,0.12)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#d99567]">
-                  Store Metadata
-                </div>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">
-                  매장 정보 입력
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  기존 영상 생성 페이지에서 쓰는 매장 정보 필드를 그대로
-                  입력합니다.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowStoreFields(false)}
-                className="rounded-2xl border border-black/8 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-              >
-                닫기
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
-              <input
-                value={storeInfo.name}
-                onChange={(e) => updateStoreField("name", e.target.value)}
-                placeholder="매장 이름"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <input
-                value={storeInfo.instagram}
-                onChange={(e) => updateStoreField("instagram", e.target.value)}
-                placeholder="인스타그램"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <input
-                value={storeInfo.address}
-                onChange={(e) => updateStoreField("address", e.target.value)}
-                placeholder="주소"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <input
-                value={storeInfo.phone}
-                onChange={(e) => updateStoreField("phone", e.target.value)}
-                placeholder="전화번호"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <input
-                value={storeInfo.subtitle}
-                onChange={(e) => updateStoreField("subtitle", e.target.value)}
-                placeholder="부제"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <input
-                value={storeInfo.strengths}
-                onChange={(e) => updateStoreField("strengths", e.target.value)}
-                placeholder="가게 특장점"
-                className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-              />
-              <div className="md:col-span-2">
-                <input
-                  value={storeInfo.hours}
-                  onChange={(e) => updateStoreField("hours", e.target.value)}
-                  placeholder="영업시간"
-                  className="w-full rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-[#ffcfb0]"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowStoreFields(false)}
-                className="rounded-2xl bg-[#ff7a2f] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(255,122,47,0.18)]"
-              >
-                입력 완료
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <style jsx>{`
+        .stage-active-glow {
+          animation: stage-glow 1.6s ease-in-out infinite;
+        }
+
+        .stage-active-ring {
+          animation: stage-ring-ping 1.8s ease-out infinite;
+          opacity: 0;
+        }
+
+        .stage-active-ring-delay {
+          animation: stage-ring-ping 1.8s ease-out 0.9s infinite;
+          opacity: 0;
+        }
+
+        .stage-active-icon {
+          animation: stage-icon-bounce 1.1s ease-in-out infinite;
+        }
+
+        .stage-active-icon-spark {
+          background: linear-gradient(
+            120deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.55) 50%,
+            transparent 70%
+          );
+          background-size: 220% 100%;
+          mix-blend-mode: overlay;
+          animation: stage-icon-sheen 1.8s ease-in-out infinite;
+        }
+
+        .stage-active-chip {
+          animation: stage-chip-pulse 1.3s ease-in-out infinite;
+        }
+
+        .stage-active-dot {
+          animation: stage-dot-blink 0.9s ease-in-out infinite;
+        }
+
+        .stage-active-index {
+          animation: stage-index-pulse 1.4s ease-in-out infinite;
+        }
+
+        .stage-active-sweep {
+          background: linear-gradient(
+            115deg,
+            transparent 35%,
+            rgba(255, 122, 47, 0.18) 50%,
+            transparent 65%
+          );
+          background-size: 220% 100%;
+          animation: stage-sweep 2.2s linear infinite;
+        }
+
+        .connector-active-flow {
+          background-image: linear-gradient(
+            90deg,
+            #ffd8bc 0%,
+            #ff7a2f 30%,
+            #ffffff 50%,
+            #ff7a2f 70%,
+            #ffd8bc 100%
+          );
+          background-size: 220% 100%;
+          animation: connector-flow 1.1s linear infinite;
+          box-shadow: 0 0 12px rgba(255, 122, 47, 0.45);
+        }
+
+        .connector-active-arrow {
+          animation: connector-arrow 1.1s ease-in-out infinite;
+          filter: drop-shadow(0 0 4px rgba(255, 122, 47, 0.6));
+        }
+
+        @keyframes stage-glow {
+          0%,
+          100% {
+            box-shadow:
+              0 14px 28px rgba(255, 122, 47, 0.32),
+              0 0 0 0 rgba(255, 122, 47, 0.55);
+          }
+          50% {
+            box-shadow:
+              0 24px 46px rgba(255, 122, 47, 0.55),
+              0 0 0 10px rgba(255, 122, 47, 0.18);
+          }
+        }
+
+        @keyframes stage-ring-ping {
+          0% {
+            transform: scale(1);
+            opacity: 0.75;
+          }
+          80% {
+            transform: scale(1.28);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1.28);
+            opacity: 0;
+          }
+        }
+
+        @keyframes stage-icon-bounce {
+          0%,
+          100% {
+            transform: scale(1) rotate(0deg);
+          }
+          50% {
+            transform: scale(1.16) rotate(-4deg);
+          }
+        }
+
+        @keyframes stage-icon-sheen {
+          0% {
+            background-position: 120% 0;
+          }
+          100% {
+            background-position: -120% 0;
+          }
+        }
+
+        @keyframes stage-chip-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            box-shadow: 0 4px 10px rgba(255, 122, 47, 0.3);
+          }
+          50% {
+            transform: scale(1.08);
+            box-shadow: 0 6px 16px rgba(255, 122, 47, 0.55);
+          }
+        }
+
+        @keyframes stage-dot-blink {
+          0%,
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.4;
+            transform: scale(0.7);
+          }
+        }
+
+        @keyframes stage-index-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            box-shadow: 0 4px 10px rgba(255, 122, 47, 0.35);
+          }
+          50% {
+            transform: scale(1.12);
+            box-shadow: 0 6px 16px rgba(255, 122, 47, 0.6);
+          }
+        }
+
+        @keyframes stage-sweep {
+          0% {
+            background-position: 130% 0;
+          }
+          100% {
+            background-position: -130% 0;
+          }
+        }
+
+        .pipeline-progress-fill {
+          background-image: linear-gradient(
+            90deg,
+            rgba(255, 122, 47, 0.55) 0%,
+            rgba(255, 138, 70, 0.5) 70%,
+            rgba(255, 165, 110, 0.42) 100%
+          );
+          border-right: 2px solid rgba(255, 122, 47, 0.9);
+          box-shadow: 0 0 18px rgba(255, 122, 47, 0.35) inset;
+        }
+
+        .pipeline-progress-fill::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.35) 50%,
+            transparent 100%
+          );
+          background-size: 220% 100%;
+          animation: pipeline-shine 2.2s linear infinite;
+          mix-blend-mode: overlay;
+        }
+
+        @keyframes pipeline-shine {
+          0% {
+            background-position: 130% 0;
+          }
+          100% {
+            background-position: -130% 0;
+          }
+        }
+
+        @keyframes connector-flow {
+          0% {
+            background-position: 100% 0;
+          }
+          100% {
+            background-position: -100% 0;
+          }
+        }
+
+        @keyframes connector-arrow {
+          0%,
+          100% {
+            transform: translateX(0);
+            opacity: 0.85;
+          }
+          50% {
+            transform: translateX(3px);
+            opacity: 1;
+          }
+        }
+
         .pipeline-wave-active {
           opacity: 0.94;
           animation: none;
