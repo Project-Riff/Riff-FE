@@ -76,7 +76,7 @@ export default function Header() {
               </a>
 
               <Link
-                href="/request"
+                href="/consult"
                 className="inline-flex h-[40px] items-center gap-2 rounded-full border border-black/8 bg-white px-4 text-[13px] font-medium text-[#111] transition duration-300 hover:bg-[#fafafa]"
               >
                 제작 문의
