@@ -1988,6 +1988,27 @@ function buildCutSummary(segments: AnalysisSegment[]) {
     .join("\n");
 }
 
+function buildScriptGroundingRules(segments: AnalysisSegment[]) {
+  const orderedHints = segments
+    .map((segment, index) => {
+      const ordinal = index + 1;
+      return `- ${ordinal}번째 컷(${segment.start.toFixed(1)}~${segment.end.toFixed(1)}): ${segment.label}`;
+    })
+    .join("\n");
+
+  return `### 🎯 컷-대본 정렬 규칙
+
+- 아래 선택된 컷 순서를 절대 뒤집지 마세요.
+- 초반 문장은 초반 컷을, 후반 문장은 후반 컷을 근거로 써야 합니다.
+- 한 문장은 가능하면 바로 인접한 1~2개 컷만 근거로 삼으세요.
+- 선택된 컷에 없는 포인트를 대본 핵심 문장으로 쓰지 마세요.
+- 대본은 "좋은 맛집 소개문"보다 "이 컷 순서에 맞는 말"이어야 합니다.
+
+### 🎬 컷 순서 기준
+
+${orderedHints}`;
+}
+
 async function requestScriptWithGemini(
   ai: GoogleGenAI,
   segments: AnalysisSegment[],
@@ -1995,6 +2016,7 @@ async function requestScriptWithGemini(
 ) {
   const prompt = loadPrompt("shortform-script.txt", storeInfo);
   const cutSummary = buildCutSummary(segments);
+  const groundingRules = buildScriptGroundingRules(segments);
 
   console.log("[Gemini] 대본 생성 요청");
 
@@ -2004,6 +2026,8 @@ async function requestScriptWithGemini(
       parts: [
         {
           text: `${prompt}
+
+${groundingRules}
 
 ### 🎬 선택된 컷 요약
 
