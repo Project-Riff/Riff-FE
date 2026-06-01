@@ -1,11 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import Lottie from "lottie-react";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import requestAnimation from "@/public/lottie/Social.json";
-
-const GOOGLE_FORM_URL = process.env.NEXT_PUBLIC_GOOGLE_FORM_URL;
 
 const requestItems = [
   "가게 이름 및 연락처",
@@ -107,16 +106,12 @@ export default function RequestSection() {
               </p>
 
               <div className="mt-5 flex items-center gap-3">
-                <a
-                  href={GOOGLE_FORM_URL || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <Link href="/request">
                   <PrimaryButton type="button">문의하기</PrimaryButton>
-                </a>
+                </Link>
 
                 <span className="text-[12px] text-[#999]">
-                  새 창에서 열립니다.
+                  문의 페이지로 이동합니다.
                 </span>
               </div>
             </div>
@@ -169,11 +164,6 @@ export default function RequestSection() {
           </div>
         </div>
 
-        {!GOOGLE_FORM_URL && (
-          <p className="mt-3 text-[12px] text-red-500">
-            NEXT_PUBLIC_GOOGLE_FORM_URL 환경변수가 설정되지 않았습니다.
-          </p>
-        )}
       </div>
     </section>
   );

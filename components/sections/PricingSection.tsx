@@ -1,4 +1,5 @@
 import { pricingItems } from "@/lib/data";
+import Link from "next/link";
 import { Check } from "lucide-react";
 
 export default function PricingSection() {
@@ -92,8 +93,8 @@ export default function PricingSection() {
                 </ul>
 
                 <div className="mt-auto pt-6">
-                  <a
-                    href="#request"
+                  <Link
+                    href="/request"
                     className={[
                       "inline-flex h-[40px] w-full items-center justify-center rounded-full text-[13px] font-medium transition",
                       isFeatured
@@ -102,7 +103,7 @@ export default function PricingSection() {
                     ].join(" ")}
                   >
                     {isFeatured ? "특가로 문의하기" : "문의하기"}
-                  </a>
+                  </Link>
                 </div>
               </div>
             );

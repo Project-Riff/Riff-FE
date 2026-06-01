@@ -1,6 +1,5 @@
 "use client";
 
-import type { MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Instagram, ShieldCheck } from "lucide-react";
@@ -8,21 +7,7 @@ import { ArrowUpRight, Instagram, ShieldCheck } from "lucide-react";
 export default function Header() {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin") ?? false;
-
-  const scrollToRequest = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-
-    const target = document.getElementById("request");
-    if (!target) return;
-
-    const targetTop = target.getBoundingClientRect().top + window.scrollY;
-
-    window.history.pushState(null, "", "#request");
-    window.scrollTo({
-      top: targetTop - 24,
-      behavior: "smooth",
-    });
-  };
+  const sectionHref = (hash: string) => (pathname === "/" ? hash : `/${hash}`);
 
   return (
     <header
@@ -52,19 +37,19 @@ export default function Header() {
           {!isAdmin && (
             <nav className="hidden items-center gap-8 md:flex">
               <Link
-                href="#samples"
+                href={sectionHref("#samples")}
                 className="text-[14px] font-medium text-[#777] transition hover:text-[#111]"
               >
                 샘플
               </Link>
               <Link
-                href="#process"
+                href={sectionHref("#process")}
                 className="text-[14px] font-medium text-[#777] transition hover:text-[#111]"
               >
                 제작 방식
               </Link>
               <Link
-                href="#pricing"
+                href={sectionHref("#pricing")}
                 className="text-[14px] font-medium text-[#777] transition hover:text-[#111]"
               >
                 안내
@@ -91,8 +76,7 @@ export default function Header() {
               </a>
 
               <Link
-                href="#request"
-                onClick={scrollToRequest}
+                href="/request"
                 className="inline-flex h-[40px] items-center gap-2 rounded-full border border-black/8 bg-white px-4 text-[13px] font-medium text-[#111] transition duration-300 hover:bg-[#fafafa]"
               >
                 제작 문의
