@@ -501,12 +501,12 @@ export default function ShortformStudioPage() {
   }, [jobLogs.length]);
 
   return (
-    <main className="min-h-screen bg-white px-5 py-6 text-slate-900 md:px-8">
+    <main className="min-h-screen bg-white px-3 py-4 text-slate-900 md:px-8 md:py-6">
       <div className="mx-auto max-w-[1540px]">
         <div className="relative">
           <div className="min-h-[calc(100vh-80px)]">
             <section className="flex min-w-0 flex-col px-1">
-              <div className="relative flex-1 overflow-hidden rounded-[36px] border-2 border-slate-200 bg-white px-6 py-7 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
+              <div className="relative flex-1 overflow-hidden rounded-[24px] md:rounded-[36px] border-2 border-slate-200 bg-white px-3 py-4 md:px-6 md:py-7 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
                 <div className="p-1">
                   <div className="mb-3 flex items-center justify-between">
                     <div className="text-lg font-bold tracking-[-0.02em] text-slate-900">
@@ -523,7 +523,7 @@ export default function ShortformStudioPage() {
                   </div>
 
                   <div className="grid gap-5">
-                    <div className="relative overflow-hidden rounded-[28px] border-2 border-slate-200 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.99),rgba(255,252,248,0.96)_56%,rgba(252,248,243,0.88)_100%)] px-4 py-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+                    <div className="relative overflow-hidden rounded-[20px] md:rounded-[28px] border-2 border-slate-200 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.99),rgba(255,252,248,0.96)_56%,rgba(252,248,243,0.88)_100%)] px-2 py-3 md:px-4 md:py-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
                       <div
                         className="pipeline-progress-fill pointer-events-none absolute inset-y-0 left-0 transition-[width] duration-700 ease-out"
                         style={{ width: `${pipelinePercent}%` }}
@@ -532,7 +532,9 @@ export default function ShortformStudioPage() {
                         className="pointer-events-none absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 bg-[#ff7a2f] shadow-[0_0_14px_rgba(255,122,47,0.85)] transition-[left] duration-700 ease-out"
                         style={{ left: `${pipelinePercent}%`, opacity: pipelinePercent > 0 && pipelinePercent < 100 ? 1 : 0 }}
                       />
-                      <div className="relative z-10 flex w-full items-center overflow-x-auto px-3 pb-3 pt-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                      
+                      {/* Desktop Horizontal View */}
+                      <div className="relative z-10 hidden md:flex w-full items-center overflow-x-auto px-3 pb-3 pt-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         {pipelineStages.map((stage, idx) => {
                           const isLast = idx === pipelineStages.length - 1;
                           const status = pipelineStatuses[idx];
@@ -577,6 +579,55 @@ export default function ShortformStudioPage() {
                                 </div>
                               )}
                             </Fragment>
+                          );
+                        })}
+                      </div>
+
+                      {/* Mobile Grid View */}
+                      <div className="relative z-10 grid grid-cols-2 md:hidden gap-1.5 px-0.5 py-1">
+                        {pipelineStages.map((stage, idx) => {
+                          const status = pipelineStatuses[idx];
+                          const isActive = status === "active";
+                          const isDone = status === "done";
+                          return (
+                            <div
+                              key={stage.key}
+                              className={`flex items-center gap-1.5 rounded-lg border p-1.5 transition-all ${
+                                isActive
+                                  ? "border-[#ff7a2f] bg-[#fff5ec] text-[#d95d16] font-semibold shadow-[0_4px_12px_rgba(255,122,47,0.1)]"
+                                  : isDone
+                                    ? "border-emerald-200 bg-emerald-50/50 text-slate-700"
+                                    : "border-slate-100 bg-white text-slate-400"
+                              } ${idx === 6 ? "col-span-2" : ""}`}
+                            >
+                              <span
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                                  isActive
+                                    ? "bg-[#ff7a2f] text-white animate-pulse"
+                                    : isDone
+                                      ? "bg-emerald-500 text-white"
+                                      : "bg-slate-100 text-slate-400"
+                                }`}
+                              >
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[11px] leading-tight font-bold">
+                                  {stage.title}
+                                </p>
+                                <p
+                                  className={`truncate text-[9px] mt-0.5 ${
+                                    isActive
+                                      ? "text-[#d95d16]/80 font-medium"
+                                      : isDone
+                                        ? "text-emerald-600 font-medium"
+                                        : "text-slate-400"
+                                  }`}
+                                >
+                                  {isActive ? "진행 중" : isDone ? "완료" : "대기"}
+                                </p>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
