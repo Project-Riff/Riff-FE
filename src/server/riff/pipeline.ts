@@ -18,6 +18,8 @@ import { makeTtsWav, measureSubtitleTimings, probeAudioDuration } from "./macos-
 import { renderRemotionOverlay } from "./remotion";
 import { buildSfxCues } from "./sfx";
 import { writeSrtFile } from "./srt";
+import { generateInstagramCaption } from "./instagram-caption";
+import { generateThumbnail } from "./thumbnail";
 import { AnalysisResult, ResumeFrom } from "./types";
 
 function errorMessage(error: unknown) {
@@ -689,6 +691,38 @@ export async function runRealPipeline(jobId: string) {
     console.log(
       `[Pipeline] final 생성 완료 path=${paths.finalPath}, duration=${finalMeta.duration.toFixed(2)}s`,
     );
+
+    await patchJob(jobId, {
+      stage: "rendering",
+      progress: 99,
+      message: "썸네일 및 게시물 패키징",
+      analysis,
+      artifacts: {
+        analysisPath: paths.analysisPath,
+        clipPaths,
+        ttsPath: paths.ttsPath,
+        subtitlePath,
+        bodyPath: paths.bodyPath,
+        overlayPath: paths.overlayPath,
+        finalPath: paths.finalPath,
+        finalUrl: paths.finalUrl,
+      },
+      error: undefined,
+    });
+
+    await pushJobLog(jobId, "rendering", 99, "썸네일 및 게시물 패키징");
+
+    try {
+      await generateThumbnail(jobId);
+    } catch (thumbnailError) {
+      console.error("[Pipeline] thumbnail generation failed:", thumbnailError);
+    }
+
+    try {
+      await generateInstagramCaption(jobId);
+    } catch (captionError) {
+      console.error("[Pipeline] instagram caption generation failed:", captionError);
+    }
 
     await patchJob(jobId, {
       stage: "done",

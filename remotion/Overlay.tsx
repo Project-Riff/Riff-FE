@@ -148,7 +148,10 @@ export const OverlayVideo: React.FC = () => {
   const videoSrc = input.videoSrc?.startsWith("/")
     ? staticFile(input.videoSrc.replace(/^\//, ""))
     : input.videoSrc;
+  const watermarkSrc = staticFile("watermarks/watermark.png");
+  const titleTop = height * 0.26;
   const subtitleTop = height * 0.30;
+  const watermarkTop = titleTop - 132;
   const infoSubtitleTop = height * 0.65;
   const pretendardSemiBoldSrc = staticFile("fonts/Pretendard-SemiBold.otf");
   const currentSeconds = frame / fps;
@@ -202,6 +205,21 @@ export const OverlayVideo: React.FC = () => {
         style={{
           background:
             "linear-gradient(180deg, rgba(48, 31, 20, 0.18) 0%, rgba(48, 31, 20, 0.02) 34%, rgba(15, 8, 5, 0.08) 100%)",
+        }}
+      />
+      <img
+        src={watermarkSrc}
+        alt="watermark"
+        style={{
+          position: "absolute",
+          top: watermarkTop,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 138,
+          height: "auto",
+          opacity: 0.48,
+          objectFit: "contain",
+          filter: "drop-shadow(0 3px 10px rgba(0,0,0,0.18))",
         }}
       />
       <SeoulLetters title={title} />

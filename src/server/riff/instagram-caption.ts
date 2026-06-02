@@ -23,6 +23,12 @@ async function runInstagramCaption(jobId: string): Promise<string> {
   const job = await getJob(jobId);
   if (!job) throw new Error("Job not found");
 
+  await patchJob(jobId, {
+    stage: "rendering",
+    progress: 99,
+    message: "인스타그램 본문 생성 중...",
+  });
+
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY가 없습니다.");
   }
@@ -120,7 +126,7 @@ ${narration || "(없음)"}
     },
   });
 
-  await pushJobLog(jobId, "done", 100, "인스타그램 본문 생성 완료");
+  await pushJobLog(jobId, "rendering", 99, "인스타그램 본문 생성 완료");
 
   return cleaned;
 }
