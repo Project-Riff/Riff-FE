@@ -10,8 +10,47 @@ export type ConsultPayload = {
   requestNote: string;
 };
 
+export type ConsultListItem = {
+  id: number;
+  businessNumber: string;
+  businessLocation: string;
+  name: string;
+  phone: string;
+  email: string;
+  restaurantInfo: string;
+  requestNote: string;
+  createdAt: string;
+};
+
+export type ListConsultsParams = {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+};
+
+export type ListConsultsResult = {
+  items: ConsultListItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  stats: {
+    total: number;
+    today: number;
+    weekly: number;
+  };
+};
+
+export type DeleteConsultResult = {
+  id: number;
+};
+
 const CONSULT_TABLE = "consults";
 const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 50;
 
 const FIELD_LIMITS = {
   businessNumber: 32,
@@ -121,27 +160,39 @@ export function validateConsultPayload(payload: ConsultPayload) {
 }
 
 async function assertNoDuplicateConsult(payload: ConsultPayload) {
+  return assertNoDuplicateConsultForPayload(payload);
+}
+
+async function assertNoDuplicateConsultForPayload(
+  payload: ConsultPayload,
+  excludedId?: number,
+) {
   const supabase = createSupabaseServerClient();
   const duplicateSince = new Date(
     Date.now() - DUPLICATE_WINDOW_MS,
   ).toISOString();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from(CONSULT_TABLE)
     .select("id, created_at")
     .eq("email", payload.email)
     .eq("phone", payload.phone)
     .gte("created_at", duplicateSince)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(5);
+
+  if (typeof excludedId === "number") {
+    query = query.neq("id", excludedId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[consult] duplicate check error:", error);
     throw new ConsultSubmissionError("문의 확인 중 오류가 발생했습니다.", 500);
   }
 
-  if (data) {
+  if ((data ?? []).length > 0) {
     throw new ConsultSubmissionError(
       "동일한 문의가 최근에 접수되었습니다. 잠시 후 다시 시도해주세요.",
       409,
@@ -167,6 +218,30 @@ async function insertConsult(payload: ConsultPayload) {
   }
 }
 
+function assertValidConsultId(id: number) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ConsultSubmissionError("유효한 문의 ID가 아닙니다.", 400);
+  }
+}
+
+async function assertConsultExists(id: number) {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from(CONSULT_TABLE)
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[consult] existence check error:", error);
+    throw new ConsultSubmissionError("문의 조회 중 오류가 발생했습니다.", 500);
+  }
+
+  if (!data) {
+    throw new ConsultSubmissionError("해당 문의를 찾을 수 없습니다.", 404);
+  }
+}
+
 export async function submitConsult(payload: Partial<ConsultPayload>) {
   const normalizedPayload = normalizeConsultPayload(payload);
 
@@ -175,4 +250,168 @@ export async function submitConsult(payload: Partial<ConsultPayload>) {
   await insertConsult(normalizedPayload);
 
   return normalizedPayload;
+}
+
+export async function updateConsult(id: number, payload: Partial<ConsultPayload>) {
+  assertValidConsultId(id);
+  await assertConsultExists(id);
+
+  const normalizedPayload = normalizeConsultPayload(payload);
+
+  validateConsultPayload(normalizedPayload);
+  await assertNoDuplicateConsultForPayload(normalizedPayload, id);
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from(CONSULT_TABLE)
+    .update({
+      business_number: normalizedPayload.businessNumber,
+      business_location: normalizedPayload.businessLocation,
+      name: normalizedPayload.name,
+      phone: normalizedPayload.phone,
+      email: normalizedPayload.email,
+      restaurant_info: normalizedPayload.restaurantInfo,
+      request_note: normalizedPayload.requestNote || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[consult] update error:", error);
+    throw new ConsultSubmissionError("문의 수정 중 오류가 발생했습니다.", 500);
+  }
+
+  return normalizedPayload;
+}
+
+export async function deleteConsult(id: number): Promise<DeleteConsultResult> {
+  assertValidConsultId(id);
+  await assertConsultExists(id);
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from(CONSULT_TABLE).delete().eq("id", id);
+
+  if (error) {
+    console.error("[consult] delete error:", error);
+    throw new ConsultSubmissionError("문의 삭제 중 오류가 발생했습니다.", 500);
+  }
+
+  return { id };
+}
+
+function normalizeListParams(params: ListConsultsParams) {
+  const page =
+    Number.isFinite(params.page) && (params.page ?? 0) > 0
+      ? Math.floor(params.page as number)
+      : 1;
+  const pageSize =
+    Number.isFinite(params.pageSize) && (params.pageSize ?? 0) > 0
+      ? Math.min(Math.floor(params.pageSize as number), MAX_PAGE_SIZE)
+      : DEFAULT_PAGE_SIZE;
+  const query = params.query?.trim() ?? "";
+
+  return {
+    page,
+    pageSize,
+    query,
+  };
+}
+
+function buildSearchFilter(query: string) {
+  const escaped = query.replace(/[%_,]/g, "");
+
+  return [
+    `business_location.ilike.%${escaped}%`,
+    `name.ilike.%${escaped}%`,
+    `phone.ilike.%${escaped}%`,
+    `email.ilike.%${escaped}%`,
+    `business_number.ilike.%${escaped}%`,
+  ].join(",");
+}
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+function sevenDaysAgo() {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function countConsultsSince(isoDate: string) {
+  const supabase = createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from(CONSULT_TABLE)
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", isoDate);
+
+  if (error) {
+    console.error("[consult] count error:", error);
+    throw new ConsultSubmissionError("문의 목록 집계 중 오류가 발생했습니다.", 500);
+  }
+
+  return count ?? 0;
+}
+
+export async function listConsults(
+  params: ListConsultsParams = {},
+): Promise<ListConsultsResult> {
+  const { page, pageSize, query } = normalizeListParams(params);
+  const supabase = createSupabaseServerClient();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let queryBuilder = supabase
+    .from(CONSULT_TABLE)
+    .select(
+      "id, business_number, business_location, name, phone, email, restaurant_info, request_note, created_at",
+      { count: "exact" },
+    )
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (query) {
+    queryBuilder = queryBuilder.or(buildSearchFilter(query));
+  }
+
+  const [{ data, count, error }, total, today, weekly] = await Promise.all([
+    queryBuilder,
+    countConsultsSince("1970-01-01T00:00:00.000Z"),
+    countConsultsSince(startOfToday()),
+    countConsultsSince(sevenDaysAgo()),
+  ]);
+
+  if (error) {
+    console.error("[consult] list query error:", error);
+    throw new ConsultSubmissionError("문의 목록 조회 중 오류가 발생했습니다.", 500);
+  }
+
+  const items: ConsultListItem[] = (data ?? []).map((item) => ({
+    id: item.id as number,
+    businessNumber: String(item.business_number ?? ""),
+    businessLocation: String(item.business_location ?? ""),
+    name: String(item.name ?? ""),
+    phone: String(item.phone ?? ""),
+    email: String(item.email ?? ""),
+    restaurantInfo: String(item.restaurant_info ?? ""),
+    requestNote: String(item.request_note ?? ""),
+    createdAt: String(item.created_at ?? ""),
+  }));
+
+  const totalCount = count ?? 0;
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total: totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+    },
+    stats: {
+      total,
+      today,
+      weekly,
+    },
+  };
 }
