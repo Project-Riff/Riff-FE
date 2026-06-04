@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import ToastAlert from "@/components/ui/ToastAlert";
 import type {
   ConsultPayload,
   ConsultListItem,
@@ -51,6 +52,7 @@ export default function CustomerListDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const [selectedCustomer, setSelectedCustomer] =
     useState<ConsultListItem | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -62,6 +64,18 @@ export default function CustomerListDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const trimmedQuery = useMemo(() => query.trim(), [query]);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+
+    const timeout = window.setTimeout(() => {
+      setToastMessage("");
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [toastMessage]);
 
   async function fetchConsults(options?: { nextPage?: number }) {
     const targetPage = options?.nextPage ?? page;
@@ -158,30 +172,32 @@ export default function CustomerListDashboard() {
         },
         body: JSON.stringify(editForm),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as {
+        error?: string;
+        item?: ConsultListItem;
+      };
 
       if (!response.ok) {
         throw new Error(result.error || "고객 문의 수정 중 오류가 발생했습니다.");
       }
 
-      setSelectedCustomer((prev) =>
-        prev
-          ? {
-              ...prev,
-              businessNumber: editForm.businessNumber,
-              businessLocation: editForm.businessLocation,
-              name: editForm.name,
-              phone: editForm.phone,
-              email: editForm.email,
-              referrer: editForm.referrer,
-              restaurantInfo: editForm.restaurantInfo,
-              requestNote: editForm.requestNote,
-            }
-          : prev,
-      );
+      if (result.item) {
+        setSelectedCustomer(result.item);
+        setEditForm({
+          businessNumber: result.item.businessNumber,
+          businessLocation: result.item.businessLocation,
+          name: result.item.name,
+          phone: result.item.phone,
+          email: result.item.email,
+          referrer: result.item.referrer,
+          restaurantInfo: result.item.restaurantInfo,
+          requestNote: result.item.requestNote,
+        });
+      }
       setIsEditMode(false);
       setEditErrorMessage("");
       setIsSaving(false);
+      setToastMessage("문의가 수정되었습니다.");
       await fetchConsults();
     } catch (error) {
       console.error("[admin/list] update error:", error);
@@ -214,6 +230,7 @@ export default function CustomerListDashboard() {
         currentRows.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
 
       closeDeleteModal();
+      setToastMessage("문의가 삭제되었습니다.");
       if (nextPage !== currentPage) {
         setPage(nextPage);
       } else {
@@ -248,6 +265,16 @@ export default function CustomerListDashboard() {
 
   return (
     <section className="space-y-6">
+      {toastMessage ? (
+        <div className="pointer-events-none fixed right-6 top-6 z-[70]">
+          <ToastAlert
+            message={toastMessage}
+            variant="success"
+            onClose={() => setToastMessage("")}
+          />
+        </div>
+      ) : null}
+
       <div className="rounded-[28px] border border-black/8 bg-white px-8 py-8 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
         <p className="text-sm font-medium text-[#ff6a1a]">Customer Dashboard</p>
         <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-neutral-900">
