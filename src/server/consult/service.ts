@@ -22,6 +22,7 @@ export type ConsultListItem = {
   restaurantInfo: string;
   requestNote: string;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type ListConsultsParams = {
@@ -49,10 +50,26 @@ export type DeleteConsultResult = {
   id: number;
 };
 
+type ConsultRow = {
+  id: number | null;
+  business_number: string | null;
+  business_location: string | null;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  referrer: string | null;
+  restaurant_info: string | null;
+  request_note: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 const CONSULT_TABLE = "consults";
 const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
+const CONSULT_SELECT_FIELDS =
+  "id, business_number, business_location, name, phone, email, referrer, restaurant_info, request_note, created_at, updated_at";
 
 const FIELD_LIMITS = {
   businessNumber: 32,
@@ -186,6 +203,7 @@ async function assertNoDuplicateConsultForPayload(
     .select("id, created_at")
     .eq("email", payload.email)
     .eq("phone", payload.phone)
+    .is("deleted_at", null)
     .gte("created_at", duplicateSince)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -234,12 +252,29 @@ function assertValidConsultId(id: number) {
   }
 }
 
+function mapConsultRow(item: ConsultRow): ConsultListItem {
+  return {
+    id: Number(item.id ?? 0),
+    businessNumber: String(item.business_number ?? ""),
+    businessLocation: String(item.business_location ?? ""),
+    name: String(item.name ?? ""),
+    phone: String(item.phone ?? ""),
+    email: String(item.email ?? ""),
+    referrer: String(item.referrer ?? ""),
+    restaurantInfo: String(item.restaurant_info ?? ""),
+    requestNote: String(item.request_note ?? ""),
+    createdAt: String(item.created_at ?? ""),
+    updatedAt: String(item.updated_at ?? ""),
+  };
+}
+
 async function assertConsultExists(id: number) {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from(CONSULT_TABLE)
     .select("id")
     .eq("id", id)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -262,7 +297,10 @@ export async function submitConsult(payload: Partial<ConsultPayload>) {
   return normalizedPayload;
 }
 
-export async function updateConsult(id: number, payload: Partial<ConsultPayload>) {
+export async function updateConsult(
+  id: number,
+  payload: Partial<ConsultPayload>,
+): Promise<ConsultListItem> {
   assertValidConsultId(id);
   await assertConsultExists(id);
 
@@ -272,7 +310,7 @@ export async function updateConsult(id: number, payload: Partial<ConsultPayload>
   await assertNoDuplicateConsultForPayload(normalizedPayload, id);
 
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from(CONSULT_TABLE)
     .update({
       business_number: normalizedPayload.businessNumber,
@@ -283,15 +321,19 @@ export async function updateConsult(id: number, payload: Partial<ConsultPayload>
       referrer: normalizedPayload.referrer || null,
       restaurant_info: normalizedPayload.restaurantInfo,
       request_note: normalizedPayload.requestNote || null,
+      updated_at: new Date().toISOString(),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null)
+    .select(CONSULT_SELECT_FIELDS)
+    .single();
 
   if (error) {
     console.error("[consult] update error:", error);
     throw new ConsultSubmissionError("문의 수정 중 오류가 발생했습니다.", 500);
   }
 
-  return normalizedPayload;
+  return mapConsultRow(data as ConsultRow);
 }
 
 export async function deleteConsult(id: number): Promise<DeleteConsultResult> {
@@ -299,7 +341,15 @@ export async function deleteConsult(id: number): Promise<DeleteConsultResult> {
   await assertConsultExists(id);
 
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from(CONSULT_TABLE).delete().eq("id", id);
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from(CONSULT_TABLE)
+    .update({
+      deleted_at: now,
+      updated_at: now,
+    })
+    .eq("id", id)
+    .is("deleted_at", null);
 
   if (error) {
     console.error("[consult] delete error:", error);
@@ -354,6 +404,7 @@ async function countConsultsSince(isoDate: string) {
   const { count, error } = await supabase
     .from(CONSULT_TABLE)
     .select("id", { count: "exact", head: true })
+    .is("deleted_at", null)
     .gte("created_at", isoDate);
 
   if (error) {
@@ -374,10 +425,8 @@ export async function listConsults(
 
   let queryBuilder = supabase
     .from(CONSULT_TABLE)
-    .select(
-      "id, business_number, business_location, name, phone, email, referrer, restaurant_info, request_note, created_at",
-      { count: "exact" },
-    )
+    .select(CONSULT_SELECT_FIELDS, { count: "exact" })
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -397,18 +446,9 @@ export async function listConsults(
     throw new ConsultSubmissionError("문의 목록 조회 중 오류가 발생했습니다.", 500);
   }
 
-  const items: ConsultListItem[] = (data ?? []).map((item) => ({
-    id: item.id as number,
-    businessNumber: String(item.business_number ?? ""),
-    businessLocation: String(item.business_location ?? ""),
-    name: String(item.name ?? ""),
-    phone: String(item.phone ?? ""),
-    email: String(item.email ?? ""),
-    referrer: String(item.referrer ?? ""),
-    restaurantInfo: String(item.restaurant_info ?? ""),
-    requestNote: String(item.request_note ?? ""),
-    createdAt: String(item.created_at ?? ""),
-  }));
+  const items: ConsultListItem[] = (data ?? []).map((item) =>
+    mapConsultRow(item as ConsultRow),
+  );
 
   const totalCount = count ?? 0;
 

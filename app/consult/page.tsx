@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Send } from "lucide-react";
+import ToastAlert from "@/components/ui/ToastAlert";
 
 const initialForm = {
   businessNumber: "",
@@ -27,11 +28,24 @@ function isValidPhone(phone: string) {
 export default function RequestPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     phone?: string;
     email?: string;
   }>({});
+
+  useEffect(() => {
+    if (!successMessage) return;
+
+    const timeout = window.setTimeout(() => {
+      setSuccessMessage("");
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [successMessage]);
 
   const updateField = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -96,7 +110,7 @@ export default function RequestPage() {
         return;
       }
 
-      alert("문의가 접수되었습니다.");
+      setSuccessMessage("문의가 접수되었습니다.");
       setForm(initialForm);
       setFieldErrors({});
     } catch (error) {
@@ -109,6 +123,16 @@ export default function RequestPage() {
 
   return (
     <main className="relative h-[calc(100vh-76px)] overflow-hidden bg-white px-5 py-5 text-[#111] md:px-8">
+      {successMessage ? (
+        <div className="pointer-events-none fixed right-6 top-6 z-[70]">
+          <ToastAlert
+            message={successMessage}
+            variant="success"
+            onClose={() => setSuccessMessage("")}
+          />
+        </div>
+      ) : null}
+
       <div className="pointer-events-none absolute left-[max(42px,calc(50%-560px))] top-1/2 hidden h-[430px] w-[250px] -translate-y-1/2 opacity-90 lg:block">
         <svg
           className="decor-line-drift absolute inset-0 h-full w-full"
