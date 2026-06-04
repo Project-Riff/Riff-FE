@@ -9,8 +9,8 @@ export default function AdminPage() {
           관리자 페이지
         </h2>
         <p className="mt-3 text-sm leading-6 text-neutral-500">
-          Riff 내부 작업용 페이지입니다. 원본 영상 업로드와 숏폼 생성 등 관리자 전용
-          기능을 사용할 수 있습니다.
+          Riff 내부 작업용 페이지입니다. 원본 영상 업로드와 숏폼 생성 등 관리자
+          전용 기능을 사용할 수 있습니다.
         </p>
       </div>
 
@@ -33,6 +33,23 @@ export default function AdminPage() {
           </p>
         </Link>
 
+        <Link
+          href="/admin/list"
+          className="group rounded-[24px] border border-black/8 bg-white p-6 transition duration-200 hover:-translate-y-0.5 hover:border-black/15 hover:shadow-[0_16px_40px_rgba(0,0,0,0.06)]"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold tracking-[-0.02em] text-neutral-900">
+              List
+            </p>
+            <span className="rounded-full border border-black/10 px-3 py-1 text-xs font-medium text-neutral-500 transition group-hover:text-neutral-800">
+              바로가기
+            </span>
+          </div>
+
+          <p className="mt-3 text-sm leading-6 text-neutral-500">
+            고객 리스트 조회,수정,삭제 기능을 제공합니다.
+          </p>
+        </Link>
       </div>
     </section>
   );

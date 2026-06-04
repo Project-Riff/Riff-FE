@@ -9,6 +9,7 @@ const initialForm = {
   name: "",
   phone: "",
   email: "",
+  referrer: "",
   restaurantInfo: "",
   requestNote: "",
 };
@@ -26,6 +27,7 @@ function isValidPhone(phone: string) {
 export default function RequestPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     phone?: string;
     email?: string;
@@ -56,7 +58,7 @@ export default function RequestPage() {
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!isValidPhone(form.phone)) {
@@ -75,8 +77,34 @@ export default function RequestPage() {
       return;
     }
 
-    alert("전송되었습니다");
-    setForm(initialForm);
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch("/api/consult", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setErrorMessage(result.error || "문의 접수 중 오류가 발생했습니다.");
+        return;
+      }
+
+      alert("문의가 접수되었습니다.");
+      setForm(initialForm);
+      setFieldErrors({});
+    } catch (error) {
+      console.error("[consult] submit error:", error);
+      setErrorMessage("문의 접수 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -202,17 +230,21 @@ export default function RequestPage() {
                 error={fieldErrors.phone}
                 required
               />
-              <div className="md:col-span-2">
-                <Field
-                  label="이메일"
-                  type="email"
-                  value={form.email}
-                  onChange={(value) => updateField("email", value)}
-                  placeholder="예: riff@example.com"
-                  error={fieldErrors.email}
-                  required
-                />
-              </div>
+              <Field
+                label="이메일"
+                type="email"
+                value={form.email}
+                onChange={(value) => updateField("email", value)}
+                placeholder="예: riff@example.com"
+                error={fieldErrors.email}
+                required
+              />
+              <Field
+                label="추천인"
+                value={form.referrer ?? ""}
+                onChange={(value) => updateField("referrer", value)}
+                placeholder="추천인이 있다면 입력해주세요"
+              />
             </div>
 
             <div className="mt-3">
@@ -242,10 +274,11 @@ export default function RequestPage() {
 
             <button
               type="submit"
+              disabled={isSubmitting}
               className="mt-3.5 inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#ff7a2f] px-5 text-[13px] font-semibold text-white shadow-[0_12px_28px_rgba(255,122,47,0.28)] transition hover:bg-[#ff8a3d]"
             >
               <Send size={15} />
-              문의 접수하기
+              {isSubmitting ? "문의 접수 중..." : "문의 접수하기"}
             </button>
           </form>
         </section>

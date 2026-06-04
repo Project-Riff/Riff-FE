@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/genai": "^1.50.1",
     "@remotion/renderer": "^4.0.452",
+    "@supabase/supabase-js": "^2.106.2",
     "@vercel/blob": "^2.3.3",
     "framer-motion": "^12.38.0",
     "lottie-react": "^2.4.1",

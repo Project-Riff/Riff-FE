@@ -91,7 +91,7 @@ export async function generateThumbnail(jobId: string): Promise<string> {
 
     await patchJob(jobId, {
       stage: "rendering",
-      progress: 98,
+      progress: 99,
       message: "썸네일 프레임 추출 중...",
     });
 
