@@ -76,12 +76,14 @@ body {
 }
 
 .studio-scroll {
+  color-scheme: light;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 122, 47, 0.42) transparent;
 }
 
 .studio-scroll::-webkit-scrollbar {
   width: 12px;
+  height: 12px;
 }
 
 .studio-scroll::-webkit-scrollbar-track {

@@ -106,7 +106,7 @@ export default function RequestSection() {
               </p>
 
               <div className="mt-5 flex items-center gap-3">
-                <Link href="/consult">
+                <Link href="/apply">
                   <PrimaryButton type="button">문의하기</PrimaryButton>
                 </Link>
 

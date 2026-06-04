@@ -94,7 +94,7 @@ export default function PricingSection() {
 
                 <div className="mt-auto pt-6">
                   <Link
-                    href="/consult"
+                    href="/apply"
                     className={[
                       "inline-flex h-[40px] w-full items-center justify-center rounded-full text-[13px] font-medium transition",
                       isFeatured

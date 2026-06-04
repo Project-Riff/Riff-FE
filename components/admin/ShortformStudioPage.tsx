@@ -1,418 +1,118 @@
 "use client";
 
 import {
+  ArrowUpRight,
+  CheckCircle2,
+  Clipboard,
+  Download,
+  FileJson,
+  FileText,
+  FileVideo2,
+  Film,
+  Image as ImageIcon,
+  Loader2,
+  Mic2,
+  Play,
+  Upload,
+  Volume2,
+} from "lucide-react";
+import Lottie from "lottie-react";
+import { useState } from "react";
+import {
   ResumeFrom,
   STAGE_LABELS,
   useShortformPipeline,
 } from "@/components/admin/useShortformPipeline";
-import {
-  CheckCircle2,
-  ChevronRight,
-  CircleDashed,
-  Clock3,
-  FileVideo2,
-  Film,
-  LayoutPanelLeft,
-  Play,
-  Sparkles,
-  Subtitles,
-  Wand2,
-} from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import loadingAnimation from "@/public/lottie/loading.json";
 
-function formatLogTime(ms: number) {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
+const resumeOptions: Array<{ value: ResumeFrom; label: string }> = [
+  { value: "full", label: "처음부터" },
+  { value: "analysis", label: "분석부터" },
+  { value: "script", label: "문구만" },
+  { value: "title", label: "제목만" },
+  { value: "subtitle-only", label: "부제만" },
+  { value: "subtitle", label: "자막부터" },
+  { value: "tts", label: "TTS부터" },
+  { value: "body", label: "합성만" },
+];
 
-type PipelineVisualStatus = "done" | "active" | "idle";
-
-const pipelineStages = [
-  {
-    key: "source",
-    title: "Prepare Source",
-    subtitle: "업로드 · 압축 · 정보 확인",
-    accent: "from-sky-500 to-cyan-400",
-  },
-  {
-    key: "stable-cuts",
-    title: "Stable Chunks",
-    subtitle: "안정 구간 추출",
-    accent: "from-indigo-500 to-violet-500",
-  },
-  {
-    key: "hooks",
-    title: "Analyze Cuts",
-    subtitle: "Gemini 컷 선택",
-    accent: "from-fuchsia-500 to-indigo-500",
-  },
-  {
-    key: "body",
-    title: "Build Body",
-    subtitle: "클립 컷팅 · 바디 생성",
-    accent: "from-emerald-500 to-teal-400",
-  },
-  {
-    key: "script",
-    title: "Write Script",
-    subtitle: "컷 기반 문구 생성",
-    accent: "from-amber-500 to-orange-400",
-  },
-  {
-    key: "sync",
-    title: "Sync Voice",
-    subtitle: "TTS · 자막 타이밍",
-    accent: "from-rose-500 to-pink-500",
-  },
-  {
-    key: "final",
-    title: "Render Final",
-    subtitle: "오버레이 · 최종 합성",
-    accent: "from-slate-700 to-slate-500",
-  },
-] as const;
-
-const stageNodePoints = [
-  { x: 154, y: 306 },
-  { x: 236, y: 96 },
-  { x: 378, y: 326 },
-  { x: 466, y: 82 },
-  { x: 610, y: 302 },
-  { x: 692, y: 102 },
-  { x: 846, y: 214 },
-] as const;
-
-const orderedMainSegments = [
-  {
-    d: "M 154 306 C 138 236, 176 138, 236 96",
-    width: 4.8,
-  },
-  {
-    d: "M 236 96 C 266 196, 314 274, 378 326",
-    width: 4.4,
-  },
-  {
-    d: "M 378 326 C 405 244, 424 138, 466 82",
-    width: 4.8,
-  },
-  {
-    d: "M 466 82 C 506 146, 548 244, 610 302",
-    width: 4.6,
-  },
-  {
-    d: "M 610 302 C 622 230, 654 150, 692 102",
-    width: 4.3,
-  },
-  {
-    d: "M 692 102 C 758 112, 809 150, 846 214",
-    width: 4.5,
-  },
-] as const;
-
-const orderedSupportSegments = [
-  [
-    {
-      d: "M 154 306 C 196 268, 208 175, 236 96",
-      width: 2.3,
-      opacity: 0.36,
-    },
-    {
-      d: "M 154 306 C 178 252, 199 181, 223 129 C 227 118, 231 108, 236 96",
-      width: 1.7,
-      opacity: 0.26,
-    },
-    {
-      d: "M 154 306 C 165 250, 182 185, 205 140 C 214 122, 224 107, 236 96",
-      width: 1.4,
-      opacity: 0.18,
-    },
-  ],
-  [
-    {
-      d: "M 236 96 C 274 176, 312 280, 378 326",
-      width: 2.3,
-      opacity: 0.36,
-    },
-    {
-      d: "M 236 96 C 280 154, 317 246, 360 301 C 367 310, 372 318, 378 326",
-      width: 1.7,
-      opacity: 0.26,
-    },
-    {
-      d: "M 258 112 C 303 180, 319 239, 355 289 C 364 301, 370 313, 378 326",
-      width: 1.4,
-      opacity: 0.18,
-    },
-  ],
-  [
-    {
-      d: "M 378 326 C 416 258, 429 144, 466 82",
-      width: 2.3,
-      opacity: 0.36,
-    },
-    {
-      d: "M 378 326 C 417 282, 438 160, 457 107 C 460 99, 463 90, 466 82",
-      width: 1.7,
-      opacity: 0.28,
-    },
-    {
-      d: "M 394 313 C 429 255, 440 169, 454 111 C 458 98, 462 89, 466 82",
-      width: 1.4,
-      opacity: 0.18,
-    },
-  ],
-  [
-    {
-      d: "M 466 82 C 524 152, 554 254, 610 302",
-      width: 2.1,
-      opacity: 0.32,
-    },
-    {
-      d: "M 466 82 C 504 132, 538 221, 585 285 C 594 296, 602 300, 610 302",
-      width: 1.8,
-      opacity: 0.28,
-    },
-    {
-      d: "M 489 110 C 530 165, 555 244, 600 294",
-      width: 1.2,
-      opacity: 0.16,
-    },
-  ],
-  [
-    {
-      d: "M 610 302 C 634 232, 652 146, 692 102",
-      width: 2.1,
-      opacity: 0.32,
-    },
-    {
-      d: "M 610 302 C 632 249, 647 171, 679 121 C 684 113, 688 107, 692 102",
-      width: 1.6,
-      opacity: 0.24,
-    },
-    {
-      d: "M 629 282 C 647 233, 661 159, 684 119",
-      width: 1.2,
-      opacity: 0.16,
-    },
-  ],
-  [
-    {
-      d: "M 692 102 C 741 113, 800 146, 846 214",
-      width: 1.6,
-      opacity: 0.24,
-    },
-    {
-      d: "M 720 124 C 766 138, 811 167, 838 202",
-      width: 1.2,
-      opacity: 0.16,
-    },
-  ],
-] as const;
-
-function formatSegmentTime(sec?: number) {
-  if (typeof sec !== "number" || Number.isNaN(sec)) return "-";
-  return `${sec.toFixed(1)}s`;
-}
-
-function resolvePipelineStep(stage?: string, message?: string) {
-  const normalizedMessage = message ?? "";
-
-  if (!stage || stage === "queued") return 0;
-
-  if (
-    stage === "uploading" ||
-    stage === "uploaded" ||
-    stage === "downloading" ||
-    stage === "compressing"
-  ) {
-    return 1;
-  }
-
-  if (stage === "probing") {
-    if (normalizedMessage.includes("안정 구간")) return 2;
-    return 1;
-  }
-
-  if (stage === "analyzing") {
-    if (normalizedMessage.includes("문구 생성")) return 5;
-    return 3;
-  }
-
-  if (stage === "cutting") return 4;
-  if (stage === "tts") return 6;
-
-  if (stage === "rendering") {
-    return 7;
-  }
-
-  if (stage === "done") return 7;
-  if (stage === "error") return 7;
-
-  return 0;
-}
-
-function deriveStageStatuses(
-  stage?: string,
-  message?: string,
-): PipelineVisualStatus[] {
-  if (!stage || stage === "queued") {
-    return pipelineStages.map(() => "idle");
-  }
-
-  const step = resolvePipelineStep(stage, message);
-  const isDone = stage === "done";
-
-  return pipelineStages.map((_, index) => {
-    const order = index + 1;
-    if (isDone) return "done";
-    if (order < step) return "done";
-    if (order === step) return "active";
-    return "idle";
-  });
-}
-
-function StageBadge({ status }: { status: PipelineVisualStatus }) {
-  if (status === "done") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-        <CheckCircle2 className="h-3 w-3" />
-        Done
-      </span>
-    );
-  }
-
-  if (status === "active") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#fff0e6] px-2 py-0.5 text-[10px] font-semibold text-[#d95d16]">
-        <Sparkles className="h-3 w-3" />
-        Running
-      </span>
-    );
-  }
-
+function Field({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-      <CircleDashed className="h-3 w-3" />
-      Waiting
-    </span>
+    <label className="block">
+      <span className="mb-1.5 block text-[11px] font-medium text-[#777]">
+        {label}
+      </span>
+      <input
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-full rounded-[12px] border border-[#ededed] bg-white px-3 text-[13px] text-[#111] outline-none transition placeholder:text-[#c2c2c2] focus:border-[#ffcfb0] focus:bg-[#fffaf6]"
+      />
+    </label>
   );
 }
 
-function StageNode({
-  index,
-  nodeKey,
-  title,
-  status,
-  accent,
-  selected,
+function FileButton({
+  label,
+  fileName,
+  icon: Icon,
   onClick,
+  required,
 }: {
-  index: number;
-  nodeKey: (typeof pipelineStages)[number]["key"];
-  title: string;
-  subtitle: string;
-  status: PipelineVisualStatus;
-  accent: string;
-  selected?: boolean;
-  onClick?: () => void;
+  label: string;
+  fileName?: string;
+  icon: typeof FileVideo2;
+  onClick: () => void;
+  required?: boolean;
 }) {
-  const active = status === "active";
-  const done = status === "done";
-  const Icon =
-    nodeKey === "source"
-      ? FileVideo2
-      : nodeKey === "stable-cuts"
-        ? Film
-        : nodeKey === "hooks"
-          ? Sparkles
-          : nodeKey === "body"
-            ? LayoutPanelLeft
-            : nodeKey === "script"
-              ? Wand2
-              : nodeKey === "sync"
-                ? Subtitles
-                : Play;
-
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative w-[128px] rounded-[24px] border-2 px-2 pb-3.5 pt-4 text-center transition ${
-        active
-          ? "stage-active-glow border-[#ff7a2f] bg-gradient-to-br from-[#fff5ec] to-white"
-          : done
-            ? "border-[#ffd8bc] bg-[#fff8f3] shadow-[0_8px_18px_rgba(255,122,47,0.10)]"
-            : "border-slate-200/80 bg-white shadow-[0_4px_10px_rgba(15,23,42,0.04)]"
-      } ${selected ? "ring-4 ring-[#ffe7d7]" : ""} hover:-translate-y-0.5`}
+      className="flex h-10 min-w-0 items-center gap-2 rounded-[12px] border border-dashed border-[#ffd8bc] bg-[#fffaf6] px-3 text-left text-[12px] font-medium text-[#b5541c] transition hover:bg-[#fff4ed]"
     >
-      {active && (
-        <>
-          <span className="stage-active-ring pointer-events-none absolute -inset-1.5 rounded-[28px] border-2 border-[#ff7a2f]" />
-          <span className="stage-active-ring-delay pointer-events-none absolute -inset-1.5 rounded-[28px] border-2 border-[#ffb98f]" />
-          <span className="stage-active-sweep pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]" />
-        </>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{fileName || label}</span>
+      {required && (
+        <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[9px] text-[#ff7a2f]">
+          필수
+        </span>
       )}
-
-      <div
-        className={`absolute -left-2.5 -top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold shadow-md ${
-          active
-            ? "stage-active-index bg-[#ff7a2f] text-white"
-            : done
-              ? "bg-[#ff7a2f] text-white"
-              : "border-2 border-slate-200 bg-white text-slate-400"
-        }`}
-      >
-        {index}
-      </div>
-
-      <div
-        className={`relative mx-auto mb-2.5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-          active
-            ? `bg-gradient-to-br ${accent} stage-active-icon text-white shadow-[0_12px_24px_rgba(255,122,47,0.5)]`
-            : done
-              ? "border border-[#ffd8bc] bg-white text-[#ff7a2f]"
-              : "bg-slate-100 text-slate-400"
-        }`}
-      >
-        <Icon className="h-7 w-7" />
-        {active && (
-          <span className="stage-active-icon-spark pointer-events-none absolute inset-0 rounded-2xl" />
-        )}
-      </div>
-
-      <h3
-        className={`relative text-[13px] font-bold leading-tight tracking-tight ${
-          active
-            ? "text-slate-900"
-            : done
-              ? "text-slate-700"
-              : "text-slate-400"
-        }`}
-      >
-        {title}
-      </h3>
-
-      <div
-        className={`relative mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-          active
-            ? "stage-active-chip bg-[#ff7a2f] text-white"
-            : done
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-slate-100 text-slate-400"
-        }`}
-      >
-        {active && (
-          <span className="stage-active-dot block h-1.5 w-1.5 rounded-full bg-white" />
-        )}
-        {active ? "진행 중" : done ? "완료" : "대기"}
-      </div>
     </button>
+  );
+}
+
+function Panel({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={[
+        "rounded-[16px] border border-[#f0f0f0] bg-white p-4",
+        className,
+      ].join(" ")}
+    >
+      <h2 className="mb-3 shrink-0 font-[var(--font-serif)] text-[18px] tracking-[-0.02em] text-[#111]">
+        {title}
+      </h2>
+      {children}
+    </section>
   );
 }
 
@@ -420,8 +120,8 @@ export default function ShortformStudioPage() {
   const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState<
     number | null
   >(null);
+  const [isThumbnailPickerOpen, setIsThumbnailPickerOpen] = useState(false);
   const [captionCopied, setCaptionCopied] = useState(false);
-  const logScrollRef = useRef<HTMLDivElement | null>(null);
 
   const {
     fileRef,
@@ -429,6 +129,8 @@ export default function ShortformStudioPage() {
     subtitleRef,
     ttsRef,
     bodyRef,
+    dragOver,
+    setDragOver,
     pickedFile,
     analysisFile,
     setAnalysisFile,
@@ -447,1085 +149,636 @@ export default function ShortformStudioPage() {
     isUploading,
     storeInfo,
     progress,
+    guide,
     stageText,
     updateStoreField,
     pickFile,
     handleUpload,
   } = useShortformPipeline();
 
-  const needsAnalysis = ["analysis", "script", "title", "subtitle-only", "subtitle"].includes(resumeFrom);
+  const needsAnalysis = [
+    "analysis",
+    "script",
+    "title",
+    "subtitle-only",
+    "subtitle",
+  ].includes(resumeFrom);
+
   const needsSubtitle = ["subtitle", "tts", "body"].includes(resumeFrom);
   const needsTts = ["title", "subtitle-only", "tts", "body"].includes(resumeFrom);
-  const needsBody = ["script", "title", "subtitle-only", "tts", "body"].includes(resumeFrom);
-
-  const pipelineStatuses = deriveStageStatuses(job?.stage, job?.message);
-  const currentStep = resolvePipelineStep(job?.stage, job?.message);
-  const pipelinePercent = progress;
-  const sweepStep =
-    currentStep <= 0 ? 1 : Math.min(currentStep, stageNodePoints.length);
-  const sweepEndX = stageNodePoints[sweepStep - 1].x + 320;
-  const sweepStartX = -620;
-  const sweepDistancePx = sweepEndX - sweepStartX;
-  const waveCount = 2;
-  const waveTravelSpeedPxPerSec = 138;
-  const waveTravelDurationSec = Number(
-    (sweepDistancePx / waveTravelSpeedPxPerSec).toFixed(2),
-  );
-  const waveStartGapSec = Number(
-    (waveTravelDurationSec / waveCount).toFixed(2),
+  const needsBody = ["script", "title", "subtitle-only", "tts", "body"].includes(
+    resumeFrom,
   );
 
   const jobLogs = job?.logs ?? [];
+  const finalUrl = job?.artifacts?.finalUrl;
+  const latestLog = jobLogs[jobLogs.length - 1];
 
-  useEffect(() => {
-    if (logScrollRef.current) {
-      logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
-    }
-  }, [jobLogs.length]);
+  const latestLogStatus =
+    latestLog?.stage === "done"
+      ? "완료"
+      : latestLog?.stage === "error"
+        ? "오류"
+        : "진행 중";
+
+  const thumbnailCandidates =
+    job?.artifacts?.thumbnailCandidates &&
+    job.artifacts.thumbnailCandidates.length > 0
+      ? job.artifacts.thumbnailCandidates
+      : job?.artifacts?.thumbnailUrl
+        ? [{ index: 0, url: job.artifacts.thumbnailUrl, path: "" }]
+        : [];
+
+  const preferredThumbnailIndex =
+    typeof job?.artifacts?.thumbnailPreferredIndex === "number"
+      ? job.artifacts.thumbnailPreferredIndex
+      : thumbnailCandidates[0]?.index;
+
+  const activeThumbnailIndex =
+    selectedThumbnailIndex !== null &&
+    thumbnailCandidates.some((item) => item.index === selectedThumbnailIndex)
+      ? selectedThumbnailIndex
+      : preferredThumbnailIndex;
+
+  const activeThumbnail =
+    thumbnailCandidates.find((item) => item.index === activeThumbnailIndex) ??
+    thumbnailCandidates[0];
+
+  const currentStage = job?.stage ?? "";
+
+  const bodyDone =
+    Boolean(job?.artifacts?.bodyPath || job?.artifacts?.finalUrl) ||
+    ["tts", "bgm", "rendering", "done"].includes(currentStage) ||
+    progress >= 65;
+
+  const subtitleDone =
+    bodyDone &&
+    (Boolean(job?.artifacts?.subtitlePath || job?.artifacts?.subtitleUrl) ||
+      Boolean(job?.analysis?.subtitles?.length) ||
+      ["bgm", "rendering", "done"].includes(currentStage) ||
+      progress >= 78);
+
+  const completedItems = [
+    {
+      label: "컷분석완료",
+      done: Boolean(job?.analysis?.segments?.length) || progress >= 45,
+    },
+    {
+      label: "body 영상 준비 완료",
+      done: bodyDone,
+    },
+    {
+      label: "자막 동기화 완료",
+      done: subtitleDone,
+    },
+    {
+      label: "인스타그램 본문 생성 완료",
+      done: Boolean(job?.artifacts?.instagramCaption) || currentStage === "done",
+    },
+  ];
 
   return (
-    <main className="min-h-screen bg-white px-3 py-4 text-slate-900 md:px-8 md:py-6">
-      <div className="mx-auto max-w-[1540px]">
-        <div className="relative">
-          <div className="min-h-[calc(100vh-80px)]">
-            <section className="flex min-w-0 flex-col px-1">
-              <div className="relative flex-1 overflow-hidden rounded-[24px] md:rounded-[36px] border-2 border-slate-200 bg-white px-3 py-4 md:px-6 md:py-7 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
-                <div className="p-1">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-lg font-bold tracking-[-0.02em] text-slate-900">
-                      Pipeline
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[28px] font-extrabold leading-none tracking-tight text-[#ff7a2f] tabular-nums">
-                        {pipelinePercent}
-                      </span>
-                      <span className="text-sm font-bold text-[#ff7a2f]">
-                        %
-                      </span>
-                    </div>
-                  </div>
+    <main className="studio-scroll bg-white px-5 py-5 text-[#111] md:px-7 md:py-6 xl:h-screen xl:overflow-hidden">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(event) => pickFile(event.target.files?.[0])}
+      />
+      <input
+        ref={analysisRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(event) => setAnalysisFile(event.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={subtitleRef}
+        type="file"
+        accept=".srt,.vtt,.txt"
+        className="hidden"
+        onChange={(event) => setSubtitleFile(event.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={ttsRef}
+        type="file"
+        accept=".wav,audio/wav"
+        className="hidden"
+        onChange={(event) => setTtsFile(event.target.files?.[0] ?? null)}
+      />
+      <input
+        ref={bodyRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(event) => setBodyFile(event.target.files?.[0] ?? null)}
+      />
 
-                  <div className="grid gap-5">
-                    <div className="relative overflow-hidden rounded-[20px] md:rounded-[28px] border-2 border-slate-200 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.99),rgba(255,252,248,0.96)_56%,rgba(252,248,243,0.88)_100%)] px-2 py-3 md:px-4 md:py-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-                      <div
-                        className="pipeline-progress-fill pointer-events-none absolute inset-y-0 left-0 transition-[width] duration-700 ease-out"
-                        style={{ width: `${pipelinePercent}%` }}
-                      />
-                      <div
-                        className="pointer-events-none absolute inset-y-0 z-[1] w-[3px] -translate-x-1/2 bg-[#ff7a2f] shadow-[0_0_14px_rgba(255,122,47,0.85)] transition-[left] duration-700 ease-out"
-                        style={{ left: `${pipelinePercent}%`, opacity: pipelinePercent > 0 && pipelinePercent < 100 ? 1 : 0 }}
-                      />
-                      
-                      {/* Desktop Horizontal View */}
-                      <div className="relative z-10 hidden md:flex w-full items-center overflow-x-auto px-3 pb-3 pt-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {pipelineStages.map((stage, idx) => {
-                          const isLast = idx === pipelineStages.length - 1;
-                          const status = pipelineStatuses[idx];
-                          const nextStatus = isLast
-                            ? undefined
-                            : pipelineStatuses[idx + 1];
-                          const connectorDone = status === "done";
-                          const connectorActive =
-                            status === "done" && nextStatus === "active";
-                          return (
-                            <Fragment key={stage.key}>
-                              <div className="shrink-0">
-                                <StageNode
-                                  index={idx + 1}
-                                  nodeKey={stage.key}
-                                  title={stage.title}
-                                  subtitle={stage.subtitle}
-                                  accent={stage.accent}
-                                  status={status}
-                                />
-                              </div>
-                              {!isLast && (
-                                <div className="flex min-w-[36px] flex-1 items-center gap-1.5 self-center px-2">
-                                  <div
-                                    className={`h-[5px] flex-1 rounded-full ${
-                                      connectorActive
-                                        ? "connector-active-flow"
-                                        : connectorDone
-                                          ? "bg-[#ff7a2f]"
-                                          : "bg-slate-200"
-                                    }`}
-                                  />
-                                  <ChevronRight
-                                    className={`h-5 w-5 shrink-0 ${
-                                      connectorActive
-                                        ? "connector-active-arrow text-[#ff7a2f]"
-                                        : connectorDone
-                                          ? "text-[#ff7a2f]"
-                                          : "text-slate-300"
-                                    }`}
-                                  />
-                                </div>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </div>
-
-                      {/* Mobile Grid View */}
-                      <div className="relative z-10 grid grid-cols-2 md:hidden gap-1.5 px-0.5 py-1">
-                        {pipelineStages.map((stage, idx) => {
-                          const status = pipelineStatuses[idx];
-                          const isActive = status === "active";
-                          const isDone = status === "done";
-                          return (
-                            <div
-                              key={stage.key}
-                              className={`flex items-center gap-1.5 rounded-lg border p-1.5 transition-all ${
-                                isActive
-                                  ? "border-[#ff7a2f] bg-[#fff5ec] text-[#d95d16] font-semibold shadow-[0_4px_12px_rgba(255,122,47,0.1)]"
-                                  : isDone
-                                    ? "border-emerald-200 bg-emerald-50/50 text-slate-700"
-                                    : "border-slate-100 bg-white text-slate-400"
-                              } ${idx === 6 ? "col-span-2" : ""}`}
-                            >
-                              <span
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                                  isActive
-                                    ? "bg-[#ff7a2f] text-white animate-pulse"
-                                    : isDone
-                                      ? "bg-emerald-500 text-white"
-                                      : "bg-slate-100 text-slate-400"
-                                }`}
-                              >
-                                {idx + 1}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[11px] leading-tight font-bold">
-                                  {stage.title}
-                                </p>
-                                <p
-                                  className={`truncate text-[9px] mt-0.5 ${
-                                    isActive
-                                      ? "text-[#d95d16]/80 font-medium"
-                                      : isDone
-                                        ? "text-emerald-600 font-medium"
-                                        : "text-slate-400"
-                                  }`}
-                                >
-                                  {isActive ? "진행 중" : isDone ? "완료" : "대기"}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 xl:grid-cols-[1fr_1fr]">
-                      <div className="rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5">
-                        <input
-                          ref={fileRef}
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => pickFile(e.target.files?.[0])}
-                        />
-                        <input
-                          ref={analysisRef}
-                          type="file"
-                          accept=".json,application/json"
-                          className="hidden"
-                          onChange={(e) => setAnalysisFile(e.target.files?.[0] ?? null)}
-                        />
-                        <input
-                          ref={subtitleRef}
-                          type="file"
-                          accept=".srt,.vtt,.txt"
-                          className="hidden"
-                          onChange={(e) => setSubtitleFile(e.target.files?.[0] ?? null)}
-                        />
-                        <input
-                          ref={ttsRef}
-                          type="file"
-                          accept=".wav,audio/wav"
-                          className="hidden"
-                          onChange={(e) => setTtsFile(e.target.files?.[0] ?? null)}
-                        />
-                        <input
-                          ref={bodyRef}
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          onChange={(e) => setBodyFile(e.target.files?.[0] ?? null)}
-                        />
-
-                        <div className="mb-2.5 flex items-center justify-between gap-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d99567]">
-                            Input Console
-                          </div>
-                          <select
-                            value={resumeFrom}
-                            onChange={(e) =>
-                              setResumeFrom(e.target.value as ResumeFrom)
-                            }
-                            className="max-w-[230px] truncate rounded-lg border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] outline-none transition focus:border-[#ff7a2f]"
-                          >
-                            <option value="full">처음부터 다시 만들기</option>
-                            <option value="analysis">
-                              기존 분석 결과로 다시 만들기
-                            </option>
-                            <option value="script">
-                              컷은 유지하고 문구만 다시 만들기
-                            </option>
-                            <option value="title">
-                              주소 기준 제목만 다시 적용하기
-                            </option>
-                            <option value="subtitle-only">
-                              부제만 다시 적용하기
-                            </option>
-                            <option value="subtitle">
-                              기존 분석 + 자막 기준으로 다시 만들기
-                            </option>
-                            <option value="tts">
-                              기존 자막 + TTS로 영상만 다시 만들기
-                            </option>
-                            <option value="body">최종 합성만 다시 하기</option>
-                          </select>
-                        </div>
-
-                        {error ? (
-                          <div className="mb-2 flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium leading-5 text-red-700">
-                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                              !
-                            </span>
-                            <span className="flex-1">{error}</span>
-                          </div>
-                        ) : null}
-
-                        {uploadNotice ? (
-                          <div className="mb-2 rounded-xl border border-[#ffd8bc] bg-[#fff8f3] px-3 py-2 text-[11px] leading-[16px] text-[#b5541c]">
-                            {uploadNotice}
-                          </div>
-                        ) : null}
-
-                        <div className="grid gap-2">
-                          <button
-                            type="button"
-                            onClick={() => fileRef.current?.click()}
-                            className="flex items-center gap-2.5 rounded-xl border-2 border-[#ff7a2f] bg-gradient-to-br from-[#fff5ec] via-white to-white px-3 py-2 text-left text-xs font-semibold text-[#d95d16] shadow-[0_8px_18px_rgba(255,122,47,0.14)] transition hover:-translate-y-0.5"
-                          >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ff7a2f] text-white">
-                              <FileVideo2 className="h-4 w-4" />
-                            </span>
-                            <span className="min-w-0 flex-1 truncate">
-                              {pickedFile?.name || "원본 영상 업로드"}
-                            </span>
-                          </button>
-
-                          <div className="rounded-xl border border-[#ffd8bc] bg-[#fffaf6] p-2">
-                            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#d95d16]">
-                              매장 정보
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <input
-                                value={storeInfo.address}
-                                onChange={(e) =>
-                                  updateStoreField("address", e.target.value)
-                                }
-                                placeholder="주소"
-                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
-                              />
-                              <input
-                                value={storeInfo.subtitle}
-                                onChange={(e) =>
-                                  updateStoreField("subtitle", e.target.value)
-                                }
-                                placeholder="부제"
-                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
-                              />
-                              <input
-                                value={storeInfo.strengths}
-                                onChange={(e) =>
-                                  updateStoreField("strengths", e.target.value)
-                                }
-                                placeholder="가게 특장점"
-                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
-                              />
-                              <input
-                                value={storeInfo.thumbnailTitle || ""}
-                                onChange={(e) =>
-                                  updateStoreField(
-                                    "thumbnailTitle",
-                                    e.target.value,
-                                  )
-                                }
-                                placeholder="썸네일 제목 (공란 시 AI)"
-                                className="w-full rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-[#ffcfb0]"
-                              />
-                            </div>
-                          </div>
-
-                          {(needsAnalysis ||
-                            needsSubtitle ||
-                            needsTts ||
-                            needsBody) && (
-                            <div className="rounded-xl border border-dashed border-[#ffd8bc] bg-[#fffaf6] p-2">
-                              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#d95d16]">
-                                재실행 파일
-                              </div>
-                              <div className="grid grid-cols-2 gap-1.5">
-                                {needsAnalysis && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      analysisRef.current?.click()
-                                    }
-                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
-                                  >
-                                    {analysisFile?.name || "analysis.json"}
-                                  </button>
-                                )}
-                                {needsSubtitle && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      subtitleRef.current?.click()
-                                    }
-                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
-                                  >
-                                    {subtitleFile?.name || "subtitles.srt"}
-                                  </button>
-                                )}
-                                {needsTts && (
-                                  <button
-                                    type="button"
-                                    onClick={() => ttsRef.current?.click()}
-                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
-                                  >
-                                    {ttsFile?.name || "tts.wav"}
-                                  </button>
-                                )}
-                                {needsBody && (
-                                  <button
-                                    type="button"
-                                    onClick={() => bodyRef.current?.click()}
-                                    className="truncate rounded-lg border border-dashed border-[#ffd8bc] bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-[#d95d16] hover:bg-[#fffaf6]"
-                                  >
-                                    {bodyFile?.name || "body.mp4"}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={handleUpload}
-                            disabled={isUploading}
-                            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#ff7a2f] to-[#ff5e15] px-3 py-2.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(255,122,47,0.28)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isUploading ? (
-                              <>
-                                <Sparkles className="h-4 w-4 animate-pulse" />
-                                처리 중...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-3.5 w-3.5 fill-white" />
-                                작업 시작
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col rounded-2xl border-2 border-slate-200 bg-white px-4 py-3.5">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#d99567]">
-                              Latest Job
-                            </div>
-                            {job && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff0e6] px-2 py-0.5 text-[10px] font-bold text-[#d95d16]">
-                                <span className="block h-1.5 w-1.5 rounded-full bg-[#ff7a2f] stage-active-dot" />
-                                LIVE
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] font-medium text-slate-400">
-                            {jobLogs.length > 0 ? `${jobLogs.length}건` : "-"}
-                          </div>
-                        </div>
-
-                        <div className="mb-2 flex items-baseline gap-1.5 text-xs">
-                          <span className="font-mono font-semibold text-slate-900">
-                            {jobId ? `#${jobId}` : "-"}
-                          </span>
-                          <span className="truncate text-[#d95d16]">
-                            {job
-                              ? `${stageText} · ${progress}%`
-                              : "아직 실행된 작업이 없습니다"}
-                          </span>
-                        </div>
-
-                        <div
-                          ref={logScrollRef}
-                          className="flex-1 space-y-1.5 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#ff7a2f]"
-                          style={{ maxHeight: 320 }}
-                        >
-                          {jobLogs.length === 0 ? (
-                            <div className="flex h-[160px] items-center justify-center text-[11px] leading-5 text-slate-300">
-                              작업을 시작하면 로그가 기록됩니다
-                            </div>
-                          ) : (
-                            jobLogs.map((log, i) => {
-                              const isError = log.stage === "error";
-                              const isDone = log.stage === "done";
-                              const stageLabel =
-                                STAGE_LABELS[log.stage] || log.stage;
-                              const dotColor = isError
-                                ? "bg-red-500"
-                                : isDone
-                                  ? "bg-emerald-500"
-                                  : "bg-[#ff7a2f]";
-                              const stageColor = isError
-                                ? "text-red-600"
-                                : isDone
-                                  ? "text-emerald-700"
-                                  : "text-slate-800";
-                              return (
-                                <div
-                                  key={`${log.t}-${i}`}
-                                  className="flex gap-2 rounded-lg px-1.5 py-1 hover:bg-[#fffaf6]"
-                                >
-                                  <span
-                                    className={`mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`}
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-baseline justify-between gap-2">
-                                      <span
-                                        className={`truncate text-[11px] font-semibold ${stageColor}`}
-                                      >
-                                        {stageLabel}
-                                      </span>
-                                      <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-400">
-                                        {formatLogTime(log.t)} · {log.progress}%
-                                      </span>
-                                    </div>
-                                    {log.message && (
-                                      <div className="mt-0.5 text-[10.5px] leading-[15px] text-slate-500">
-                                        {log.message}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      <div className="mx-auto w-full max-w-[1440px] xl:h-full xl:max-w-none">
+        <div className="grid gap-3 xl:h-full xl:grid-cols-[315px_minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid min-h-0 gap-3 xl:h-full xl:grid-rows-[auto_minmax(0,1fr)]">
+            <Panel title="매장 정보">
+              <div className="grid gap-3">
+                <Field
+                  label="주소"
+                  value={storeInfo.address}
+                  placeholder="예: 서울 성수동"
+                  onChange={(value) => updateStoreField("address", value)}
+                />
+                <Field
+                  label="부제"
+                  value={storeInfo.subtitle}
+                  placeholder="짧은 소개"
+                  onChange={(value) => updateStoreField("subtitle", value)}
+                />
+                <Field
+                  label="특장점"
+                  value={storeInfo.strengths}
+                  placeholder="메뉴, 분위기, 강점"
+                  onChange={(value) => updateStoreField("strengths", value)}
+                />
+                <Field
+                  label="썸네일"
+                  value={storeInfo.thumbnailTitle || ""}
+                  placeholder="비워두면 자동"
+                  onChange={(value) =>
+                    updateStoreField("thumbnailTitle", value)
+                  }
+                />
               </div>
+            </Panel>
 
-              <div className="mt-6 rounded-[30px] border-2 border-slate-200 bg-white px-5 py-6 shadow-[0_18px_44px_rgba(24,29,49,0.06)]">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="text-lg font-bold tracking-[-0.02em] text-slate-900">
-                    Result Preview
+            <Panel
+              title="작업 설정"
+              className="studio-scroll flex min-h-0 flex-col xl:overflow-y-auto"
+            >
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
+                <div>
+                  <div className="mb-1.5 text-[11px] font-medium text-[#777]">
+                    시작 위치
                   </div>
-                  <div className="text-[11px] uppercase tracking-[0.14em] text-slate-300">
-                    Final
-                  </div>
+                  <select
+                    value={resumeFrom}
+                    onChange={(event) =>
+                      setResumeFrom(event.target.value as ResumeFrom)
+                    }
+                    className="h-10 w-full rounded-[12px] border border-[#ededed] bg-white px-3 text-[13px] text-[#111] outline-none transition focus:border-[#ffcfb0] focus:bg-[#fffaf6]"
+                  >
+                    {resumeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[11px] leading-5 text-[#999]">
+                    {guide.desc}
+                  </p>
                 </div>
 
-                {job?.artifacts?.finalUrl ? (
-                  <div className="mx-auto max-w-[1200px]">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <div className="text-sm font-semibold text-slate-900">
-                          아웃풋 영상
-                        </div>
-                        <a
-                          href={job.artifacts.finalUrl}
-                          download={`${job.artifacts.menuName || jobId}.mp4`}
-                          className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
-                        >
-                          다운로드
-                        </a>
-                      </div>
-                      <div className="mx-auto max-w-[280px] overflow-hidden rounded-[18px] border border-black/8 bg-black">
-                        <video
-                          key={job.artifacts.finalUrl}
-                          src={job.artifacts.finalUrl}
-                          controls
-                          playsInline
-                          className="w-full bg-black"
-                        />
-                      </div>
-                      <a
-                        href={job.artifacts.finalUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2.5 inline-flex items-center rounded-xl border border-black/10 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-slate-50"
-                      >
-                        새 창에서 보기
-                      </a>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragOver(false);
+                    pickFile(event.dataTransfer.files?.[0]);
+                  }}
+                  className={[
+                    "flex min-h-[82px] items-center gap-3 rounded-[14px] border border-dashed p-3 text-left transition",
+                    dragOver
+                      ? "border-[#ff7a2f] bg-[#fff4ed]"
+                      : "border-[#ffd8bc] bg-[#fffaf6] hover:bg-[#fff4ed]",
+                  ].join(" ")}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-white text-[#ff7a2f]">
+                    <Upload className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-semibold text-[#111]">
+                      {pickedFile?.name || "원본 영상"}
+                    </span>
+                    <span className="mt-1 block text-[11px] text-[#999]">
+                      MP4 / MOV / WEBM
+                    </span>
+                  </span>
+                </button>
+
+                {(needsAnalysis || needsSubtitle || needsTts || needsBody) && (
+                  <div className="grid gap-2">
+                    {needsAnalysis && (
+                      <FileButton
+                        label="analysis.json"
+                        fileName={analysisFile?.name}
+                        icon={FileJson}
+                        onClick={() => analysisRef.current?.click()}
+                        required
+                      />
+                    )}
+                    {needsSubtitle && (
+                      <FileButton
+                        label="subtitles.srt"
+                        fileName={subtitleFile?.name}
+                        icon={FileText}
+                        onClick={() => subtitleRef.current?.click()}
+                        required
+                      />
+                    )}
+                    {needsTts && (
+                      <FileButton
+                        label="tts.wav"
+                        fileName={ttsFile?.name}
+                        icon={Mic2}
+                        onClick={() => ttsRef.current?.click()}
+                        required
+                      />
+                    )}
+                    {needsBody && (
+                      <FileButton
+                        label="body.mp4"
+                        fileName={bodyFile?.name}
+                        icon={FileVideo2}
+                        onClick={() => bodyRef.current?.click()}
+                        required
+                      />
+                    )}
+                  </div>
+                )}
+
+                {uploadNotice && (
+                  <div className="rounded-[12px] border border-[#ffd8bc] bg-[#fffaf6] px-3 py-2 text-[11px] leading-5 text-[#b5541c]">
+                    {uploadNotice}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2 text-[12px] leading-5 text-red-600">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleUpload}
+                  disabled={isUploading}
+                  className="mt-auto flex h-11 items-center justify-center gap-2 rounded-full bg-[#ff7a2f] px-4 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(255,122,47,0.22)] transition hover:bg-[#ff8a3d] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      처리 중
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 fill-white" />
+                      작업 시작
+                    </>
+                  )}
+                </button>
+              </div>
+            </Panel>
+          </div>
+
+          <div className="grid min-h-0 gap-3 xl:h-full xl:grid-rows-[270px_minmax(0,1fr)]">
+<Panel
+  title="진행 상황"
+  className="flex min-h-0 flex-col overflow-hidden"
+>
+  <div className="grid min-h-0 flex-1 items-stretch gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_240px]">
+    <div className="min-w-0 overflow-hidden">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold text-[#111]">
+            {job ? stageText : "대기 중"}
+          </p>
+
+          <p className="mt-1 truncate font-mono text-[11px] text-[#999]">
+            {jobId ? `#${jobId}` : "작업 없음"}
+          </p>
+        </div>
+
+        <span className="shrink-0 text-[24px] font-semibold tracking-[-0.04em] text-[#ff7a2f]">
+          {progress}
+          <span className="text-[13px]">%</span>
+        </span>
+      </div>
+
+      <div className="h-2 overflow-hidden rounded-full bg-[#f3f3f3]">
+        <div
+          className="h-full rounded-full bg-[#ff7a2f] transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {completedItems.map((item, index) => (
+          <div
+            key={item.label}
+            className={[
+              "flex h-11 items-center gap-2 rounded-[12px] border px-3 transition",
+              item.done
+                ? "border-[#ffd8bc] bg-[#fffaf6] text-[#111]"
+                : "border-[#f0f0f0] bg-[#fafafa] text-[#aaa]",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                item.done
+                  ? "bg-[#ff7a2f] text-white"
+                  : "bg-white text-[#c9c9c9]",
+              ].join(" ")}
+            >
+              {item.done ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : (
+                index + 1
+              )}
+            </span>
+
+            <span className="min-w-0 truncate text-[12px] font-medium">
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="flex h-[176px] min-h-0 overflow-hidden rounded-[14px] border border-[#f0f0f0] bg-[#fafafa] px-4 py-3">
+      {latestLog ? (
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+          <div
+            className={[
+              "mx-auto flex h-[82px] w-[82px] shrink-0 items-center justify-center overflow-hidden transition",
+              latestLog.stage === "done" ||
+              latestLog.stage === "error"
+                ? "opacity-55 grayscale"
+                : "opacity-100",
+            ].join(" ")}
+          >
+            <Lottie
+              animationData={loadingAnimation}
+              loop={
+                latestLog.stage !== "done" &&
+                latestLog.stage !== "error"
+              }
+              autoplay={
+                latestLog.stage !== "done" &&
+                latestLog.stage !== "error"
+              }
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+
+          <div
+            key={`${latestLog.t}-${latestLog.stage}-${latestLog.message}`}
+            className="mt-auto min-h-0 rounded-[12px] bg-white px-3 py-2.5 shadow-[0_8px_20px_rgba(0,0,0,0.03)]"
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span
+                className={[
+                  "truncate text-[12px] font-semibold",
+                  latestLog.stage === "error"
+                    ? "text-red-600"
+                    : latestLog.stage === "done"
+                      ? "text-emerald-600"
+                      : "text-[#ff7a2f]",
+                ].join(" ")}
+              >
+                {STAGE_LABELS[latestLog.stage] || latestLog.stage}
+              </span>
+
+              <span
+                className={[
+                  "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold",
+                  latestLog.stage === "error"
+                    ? "bg-red-50 text-red-600"
+                    : latestLog.stage === "done"
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-[#fff0e6] text-[#ff7a2f]",
+                ].join(" ")}
+              >
+                {latestLogStatus}
+              </span>
+            </div>
+
+            <p className="text-[12px] leading-5 text-[#666] break-keep">
+              {latestLog.message ||
+                `${STAGE_LABELS[latestLog.stage] || "작업"} ${latestLogStatus}`}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden text-[12px] text-[#aaa]">
+          <div className="mb-2 h-[82px] w-[82px] shrink-0 overflow-hidden opacity-45 grayscale">
+            <Lottie
+              animationData={loadingAnimation}
+              loop={false}
+              autoplay={false}
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+
+          대기 중
+        </div>
+      )}
+    </div>
+  </div>
+</Panel>
+
+            <div className="grid min-h-0 gap-3 md:grid-cols-2">
+              <Panel
+                title="썸네일"
+                className="flex h-[360px] min-h-0 flex-col sm:h-[420px] lg:h-[480px] xl:h-auto"
+              >
+                {activeThumbnail ? (
+                  <div className="flex min-h-0 flex-1 flex-col gap-3">
+                    <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[14px] bg-[#fafafa]">
+                      <img
+                        key={activeThumbnail.url}
+                        src={activeThumbnail.url}
+                        alt="썸네일"
+                        className="h-full max-h-full rounded-[12px] object-contain"
+                      />
                     </div>
 
-                    {job?.artifacts?.thumbnailUrl ? (() => {
-                      const candidates =
-                        job.artifacts.thumbnailCandidates &&
-                        job.artifacts.thumbnailCandidates.length > 0
-                          ? job.artifacts.thumbnailCandidates
-                          : [
-                              {
-                                index: 0,
-                                url: job.artifacts.thumbnailUrl,
-                                path: "",
-                              },
-                            ];
+                    <div className="grid grid-cols-2 gap-2">
+                      {thumbnailCandidates.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsThumbnailPickerOpen(true)}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#fff0e6] px-3 text-[12px] font-medium text-[#ff7a2f]"
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          후보 선택
+                        </button>
+                      )}
 
-                      const preferredIndex =
-                        typeof job.artifacts.thumbnailPreferredIndex ===
-                        "number"
-                          ? job.artifacts.thumbnailPreferredIndex
-                          : candidates[0].index;
-
-                      const activeIndex =
-                        selectedThumbnailIndex !== null &&
-                        candidates.some(
-                          (c) => c.index === selectedThumbnailIndex,
-                        )
-                          ? selectedThumbnailIndex
-                          : preferredIndex;
-
-                      const activeCandidate =
-                        candidates.find((c) => c.index === activeIndex) ??
-                        candidates[0];
-
-                      return (
-                        <div className="rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
-                          <div className="mb-2.5 flex items-center justify-between">
-                            <div className="text-sm font-semibold text-slate-900">
-                              썸네일
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="text-[11px] text-slate-400">
-                                {candidates.length}개
-                              </div>
-                              <a
-                                href={activeCandidate.url}
-                                download={`${job.artifacts.menuName || jobId}.jpg`}
-                                className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
-                              >
-                                다운로드
-                              </a>
-                            </div>
-                          </div>
-                          <div className="relative mx-auto mb-2.5 aspect-[9/16] w-full max-w-[280px] overflow-hidden rounded-[18px] border border-black/8 bg-[#faf8f5]">
-                            <img
-                              key={activeCandidate.url}
-                              src={activeCandidate.url}
-                              className="w-full h-full object-cover"
-                              alt="썸네일 미리보기"
-                            />
-                          </div>
-                          {candidates.length > 1 && (
-                            <div className="mx-auto grid max-w-[280px] grid-cols-5 gap-1.5">
-                              {candidates.map((c) => {
-                                const isActive = c.index === activeIndex;
-                                const isPreferred =
-                                  c.index === preferredIndex;
-                                return (
-                                  <button
-                                    key={c.index}
-                                    type="button"
-                                    onClick={() =>
-                                      setSelectedThumbnailIndex(c.index)
-                                    }
-                                    className={`relative aspect-[9/16] overflow-hidden rounded-lg border-2 transition ${
-                                      isActive
-                                        ? "border-[#ff7a2f] shadow-[0_6px_14px_rgba(255,122,47,0.25)]"
-                                        : "border-transparent opacity-80 hover:opacity-100 hover:border-[#ffd8bc]"
-                                    }`}
-                                  >
-                                    <img
-                                      src={c.url}
-                                      className="w-full h-full object-cover"
-                                      alt={`후보 ${c.index + 1}`}
-                                    />
-                                    {isPreferred && !isActive && (
-                                      <span className="absolute left-0.5 top-0.5 rounded bg-black/55 px-1 py-px text-[8px] font-semibold text-white">
-                                        추천
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })() : (
-                      <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-200 bg-[#faf8f5] p-4 text-center text-sm text-slate-400">
-                        썸네일이 아직 생성되지 않았습니다
-                      </div>
-                    )}
-
-                    {job?.artifacts?.instagramCaption ? (
-                      <div className="flex flex-col rounded-[24px] border-2 border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(32,36,61,0.05)]">
-                        <div className="mb-2.5 flex items-center justify-between">
-                          <div className="text-sm font-semibold text-slate-900">
-                            인스타 본문
-                          </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(
-                                  job.artifacts!.instagramCaption!,
-                                );
-                                setCaptionCopied(true);
-                                setTimeout(
-                                  () => setCaptionCopied(false),
-                                  1800,
-                                );
-                              } catch (err) {
-                                console.error("clipboard error:", err);
-                              }
-                            }}
-                            className="rounded-xl border border-[#ffd8bc] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#d95d16] transition hover:bg-[#fffaf6]"
-                          >
-                            {captionCopied ? "복사됨" : "본문 복사"}
-                          </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto rounded-[18px] border border-black/8 bg-[#faf8f5] px-3.5 py-3">
-                          <pre className="whitespace-pre-wrap break-words font-[inherit] text-[12.5px] leading-6 text-slate-700">
-                            {job.artifacts.instagramCaption}
-                          </pre>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-200 bg-[#faf8f5] p-4 text-center text-sm text-slate-400">
-                        인스타 본문이 아직 생성되지 않았습니다
-                      </div>
-                    )}
+                      <a
+                        href={activeThumbnail.url}
+                        download={`${job?.artifacts?.menuName || jobId}.jpg`}
+                        className={[
+                          "inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[#ededed] px-3 text-[12px] font-medium text-[#111]",
+                          thumbnailCandidates.length > 1 ? "" : "col-span-2",
+                        ].join(" ")}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        저장
+                      </a>
                     </div>
                   </div>
                 ) : (
-                  <div className="mx-auto max-w-[1200px]">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
-                        아웃풋 영상이
-                        <br />여기에 표시됩니다
-                      </div>
-                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
-                        썸네일이
-                        <br />여기에 표시됩니다
-                      </div>
-                      <div className="mx-auto flex aspect-[9/16] w-full max-w-[280px] items-center justify-center rounded-[22px] border-2 border-dashed border-slate-200 bg-[#faf8f5] px-6 text-center text-sm leading-6 text-slate-400">
-                        인스타 본문이
-                        <br />여기에 표시됩니다
-                      </div>
-                    </div>
+                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ededed] bg-[#fafafa] text-[12px] text-[#aaa]">
+                    <ImageIcon className="mb-2 h-5 w-5" />
+                    결과 없음
                   </div>
                 )}
-              </div>
-            </section>
+              </Panel>
 
+              <Panel
+                title="본문"
+                className="flex h-[360px] min-h-0 flex-col sm:h-[420px] lg:h-[480px] xl:h-auto"
+              >
+                {job?.artifacts?.instagramCaption ? (
+                  <div className="flex min-h-0 flex-1 flex-col gap-3">
+                    <pre className="studio-scroll min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-[14px] border border-[#f0f0f0] bg-[#fafafa] p-3 font-[inherit] text-[12px] leading-5 text-[#555]">
+                      {job.artifacts.instagramCaption}
+                    </pre>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            job.artifacts!.instagramCaption!,
+                          );
+                          setCaptionCopied(true);
+                          setTimeout(() => setCaptionCopied(false), 1600);
+                        } catch (copyError) {
+                          console.error("clipboard error:", copyError);
+                        }
+                      }}
+                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-[#ededed] px-3 text-[12px] font-medium text-[#111]"
+                    >
+                      {captionCopied ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Clipboard className="h-3.5 w-3.5" />
+                      )}
+                      {captionCopied ? "복사됨" : "복사"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ededed] bg-[#fafafa] text-[12px] text-[#aaa]">
+                    <Volume2 className="mb-2 h-5 w-5" />
+                    결과 없음
+                  </div>
+                )}
+              </Panel>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 justify-center xl:h-full xl:items-center">
+            <Panel
+              title="영상"
+              className="flex h-[420px] min-h-0 w-full max-w-[440px] flex-col sm:h-[500px] lg:h-[560px] xl:h-[620px] xl:max-h-[calc(100vh-80px)] xl:max-w-none"
+            >
+              {finalUrl ? (
+                <div className="flex min-h-0 flex-1 flex-col gap-3">
+                  <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[14px] bg-black">
+                    <video
+                      key={finalUrl}
+                      src={finalUrl}
+                      controls
+                      playsInline
+                      className="h-full max-h-full max-w-full bg-black object-contain"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={finalUrl}
+                      download={`${job?.artifacts?.menuName || jobId}.mp4`}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#111] px-3 text-[12px] font-medium text-white"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      저장
+                    </a>
+
+                    <a
+                      href={finalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-[#ededed] px-3 text-[12px] font-medium text-[#111]"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      보기
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[14px] border border-dashed border-[#ededed] bg-[#fafafa] text-[12px] text-[#aaa]">
+                  <Film className="mb-2 h-5 w-5" />
+                  결과 없음
+                </div>
+              )}
+            </Panel>
           </div>
         </div>
       </div>
 
-      <style jsx>{`
-        .stage-active-glow {
-          animation: stage-glow 1.6s ease-in-out infinite;
-        }
+      {isThumbnailPickerOpen && thumbnailCandidates.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-5 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-[760px] rounded-[20px] bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-[var(--font-serif)] text-[20px] tracking-[-0.02em] text-[#111]">
+                썸네일 선택
+              </h2>
 
-        .stage-active-ring {
-          animation: stage-ring-ping 1.8s ease-out infinite;
-          opacity: 0;
-        }
+              <button
+                type="button"
+                onClick={() => setIsThumbnailPickerOpen(false)}
+                className="h-9 rounded-full border border-[#ededed] px-4 text-[12px] font-medium text-[#555] transition hover:bg-[#fafafa]"
+              >
+                닫기
+              </button>
+            </div>
 
-        .stage-active-ring-delay {
-          animation: stage-ring-ping 1.8s ease-out 0.9s infinite;
-          opacity: 0;
-        }
-
-        .stage-active-icon {
-          animation: stage-icon-bounce 1.1s ease-in-out infinite;
-        }
-
-        .stage-active-icon-spark {
-          background: linear-gradient(
-            120deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.55) 50%,
-            transparent 70%
-          );
-          background-size: 220% 100%;
-          mix-blend-mode: overlay;
-          animation: stage-icon-sheen 1.8s ease-in-out infinite;
-        }
-
-        .stage-active-chip {
-          animation: stage-chip-pulse 1.3s ease-in-out infinite;
-        }
-
-        .stage-active-dot {
-          animation: stage-dot-blink 0.9s ease-in-out infinite;
-        }
-
-        .stage-active-index {
-          animation: stage-index-pulse 1.4s ease-in-out infinite;
-        }
-
-        .stage-active-sweep {
-          background: linear-gradient(
-            115deg,
-            transparent 35%,
-            rgba(255, 122, 47, 0.18) 50%,
-            transparent 65%
-          );
-          background-size: 220% 100%;
-          animation: stage-sweep 2.2s linear infinite;
-        }
-
-        .connector-active-flow {
-          background-image: linear-gradient(
-            90deg,
-            #ffd8bc 0%,
-            #ff7a2f 30%,
-            #ffffff 50%,
-            #ff7a2f 70%,
-            #ffd8bc 100%
-          );
-          background-size: 220% 100%;
-          animation: connector-flow 1.1s linear infinite;
-          box-shadow: 0 0 12px rgba(255, 122, 47, 0.45);
-        }
-
-        .connector-active-arrow {
-          animation: connector-arrow 1.1s ease-in-out infinite;
-          filter: drop-shadow(0 0 4px rgba(255, 122, 47, 0.6));
-        }
-
-        @keyframes stage-glow {
-          0%,
-          100% {
-            box-shadow:
-              0 14px 28px rgba(255, 122, 47, 0.32),
-              0 0 0 0 rgba(255, 122, 47, 0.55);
-          }
-          50% {
-            box-shadow:
-              0 24px 46px rgba(255, 122, 47, 0.55),
-              0 0 0 10px rgba(255, 122, 47, 0.18);
-          }
-        }
-
-        @keyframes stage-ring-ping {
-          0% {
-            transform: scale(1);
-            opacity: 0.75;
-          }
-          80% {
-            transform: scale(1.28);
-            opacity: 0;
-          }
-          100% {
-            transform: scale(1.28);
-            opacity: 0;
-          }
-        }
-
-        @keyframes stage-icon-bounce {
-          0%,
-          100% {
-            transform: scale(1) rotate(0deg);
-          }
-          50% {
-            transform: scale(1.16) rotate(-4deg);
-          }
-        }
-
-        @keyframes stage-icon-sheen {
-          0% {
-            background-position: 120% 0;
-          }
-          100% {
-            background-position: -120% 0;
-          }
-        }
-
-        @keyframes stage-chip-pulse {
-          0%,
-          100% {
-            transform: scale(1);
-            box-shadow: 0 4px 10px rgba(255, 122, 47, 0.3);
-          }
-          50% {
-            transform: scale(1.08);
-            box-shadow: 0 6px 16px rgba(255, 122, 47, 0.55);
-          }
-        }
-
-        @keyframes stage-dot-blink {
-          0%,
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.4;
-            transform: scale(0.7);
-          }
-        }
-
-        @keyframes stage-index-pulse {
-          0%,
-          100% {
-            transform: scale(1);
-            box-shadow: 0 4px 10px rgba(255, 122, 47, 0.35);
-          }
-          50% {
-            transform: scale(1.12);
-            box-shadow: 0 6px 16px rgba(255, 122, 47, 0.6);
-          }
-        }
-
-        @keyframes stage-sweep {
-          0% {
-            background-position: 130% 0;
-          }
-          100% {
-            background-position: -130% 0;
-          }
-        }
-
-        .pipeline-progress-fill {
-          background-image: linear-gradient(
-            90deg,
-            rgba(255, 122, 47, 0.55) 0%,
-            rgba(255, 138, 70, 0.5) 70%,
-            rgba(255, 165, 110, 0.42) 100%
-          );
-          border-right: 2px solid rgba(255, 122, 47, 0.9);
-          box-shadow: 0 0 18px rgba(255, 122, 47, 0.35) inset;
-        }
-
-        .pipeline-progress-fill::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(255, 255, 255, 0.35) 50%,
-            transparent 100%
-          );
-          background-size: 220% 100%;
-          animation: pipeline-shine 2.2s linear infinite;
-          mix-blend-mode: overlay;
-        }
-
-        @keyframes pipeline-shine {
-          0% {
-            background-position: 130% 0;
-          }
-          100% {
-            background-position: -130% 0;
-          }
-        }
-
-        @keyframes connector-flow {
-          0% {
-            background-position: 100% 0;
-          }
-          100% {
-            background-position: -100% 0;
-          }
-        }
-
-        @keyframes connector-arrow {
-          0%,
-          100% {
-            transform: translateX(0);
-            opacity: 0.85;
-          }
-          50% {
-            transform: translateX(3px);
-            opacity: 1;
-          }
-        }
-
-        .pipeline-wave-active {
-          opacity: 0.94;
-          animation: none;
-        }
-
-        .pipeline-wave-done {
-          opacity: 0.58;
-          animation: none;
-        }
-
-        .studio-scroll {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255, 122, 47, 0.42) transparent;
-        }
-
-        .studio-scroll::-webkit-scrollbar {
-          width: 12px;
-        }
-
-        .studio-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .studio-scroll::-webkit-scrollbar-thumb {
-          border-radius: 9999px;
-          background: linear-gradient(
-            180deg,
-            rgba(255, 225, 208, 0.98) 0%,
-            rgba(255, 122, 47, 0.72) 100%
-          );
-          border: 3px solid rgba(255, 255, 255, 0.95);
-          background-clip: padding-box;
-          box-shadow: 0 6px 18px rgba(255, 122, 47, 0.12);
-        }
-
-        .studio-scroll::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(
-            180deg,
-            rgba(255, 233, 220, 1) 0%,
-            rgba(255, 122, 47, 0.84) 100%
-          );
-          border: 3px solid rgba(255, 255, 255, 0.98);
-          background-clip: padding-box;
-        }
-
-        .done-border-light {
-          box-shadow:
-            0 0 0 1px rgba(255, 214, 188, 0.7),
-            0 0 18px rgba(255, 122, 47, 0.14),
-            0 0 38px rgba(255, 185, 143, 0.1),
-            inset 0 0 18px rgba(255, 216, 188, 0.18);
-        }
-
-        .active-starfield {
-          background:
-            radial-gradient(
-              circle at 18% 24%,
-              rgba(255, 122, 47, 0.92) 0,
-              rgba(255, 122, 47, 0.92) 1px,
-              transparent 2px
-            ),
-            radial-gradient(
-              circle at 70% 16%,
-              rgba(255, 190, 153, 0.85) 0,
-              rgba(255, 190, 153, 0.85) 1px,
-              transparent 2px
-            ),
-            radial-gradient(
-              circle at 42% 54%,
-              rgba(255, 122, 47, 0.78) 0,
-              rgba(255, 122, 47, 0.78) 1px,
-              transparent 2px
-            ),
-            radial-gradient(
-              circle at 82% 64%,
-              rgba(255, 210, 186, 0.82) 0,
-              rgba(255, 210, 186, 0.82) 1px,
-              transparent 2px
-            ),
-            radial-gradient(
-              circle at 26% 82%,
-              rgba(255, 122, 47, 0.72) 0,
-              rgba(255, 122, 47, 0.72) 1px,
-              transparent 2px
-            );
-          background-size: 140% 180%;
-          mix-blend-mode: screen;
-          opacity: 0.52;
-          animation: active-stars 2.8s linear infinite;
-        }
-
-        .done-shimmer {
-          background: linear-gradient(
-            115deg,
-            transparent 18%,
-            rgba(255, 255, 255, 0.38) 33%,
-            rgba(255, 195, 150, 0.2) 46%,
-            transparent 62%
-          );
-          background-size: 220% 100%;
-          animation: done-sheen 3.2s ease-in-out infinite;
-        }
-
-        .done-sparkle {
-          animation: sparkle-pop 2.1s ease-in-out infinite;
-        }
-
-        .done-sparkle-delayed {
-          animation: sparkle-pop 2.1s ease-in-out infinite 0.8s;
-        }
-
-        @keyframes pipeline-glow {
-          0%,
-          100% {
-            opacity: 0.66;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
-
-        @keyframes done-sheen {
-          0% {
-            background-position: 140% 0;
-            opacity: 0.15;
-          }
-          25% {
-            opacity: 0.38;
-          }
-          55% {
-            background-position: -20% 0;
-            opacity: 0.25;
-          }
-          100% {
-            background-position: -60% 0;
-            opacity: 0.12;
-          }
-        }
-
-        @keyframes sparkle-pop {
-          0%,
-          100% {
-            transform: scale(0.8);
-            opacity: 0.5;
-          }
-          50% {
-            transform: scale(1.35);
-            opacity: 1;
-          }
-        }
-
-        @keyframes active-stars {
-          0% {
-            background-position:
-              0% 0%,
-              100% 0%,
-              30% 40%,
-              70% 30%,
-              20% 100%;
-          }
-          100% {
-            background-position:
-              18% 120%,
-              82% 125%,
-              46% 154%,
-              66% 138%,
-              32% 190%;
-          }
-        }
-      `}</style>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+              {thumbnailCandidates.map((candidate) => (
+                <button
+                  key={candidate.index}
+                  type="button"
+                  onClick={() => {
+                    setSelectedThumbnailIndex(candidate.index);
+                    setIsThumbnailPickerOpen(false);
+                  }}
+                  className={[
+                    "group overflow-hidden rounded-[14px] border-2 bg-[#fafafa] p-1 transition hover:-translate-y-0.5",
+                    candidate.index === activeThumbnailIndex
+                      ? "border-[#ff7a2f]"
+                      : "border-transparent hover:border-[#ffcfb0]",
+                  ].join(" ")}
+                >
+                  <img
+                    src={candidate.url}
+                    alt=""
+                    className="aspect-[9/16] w-full rounded-[10px] object-cover"
+                  />
+                  <span className="mt-2 block text-[11px] font-medium text-[#777]">
+                    {candidate.index + 1}번
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
