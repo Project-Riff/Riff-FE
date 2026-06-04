@@ -264,7 +264,7 @@ export default function CustomerListDashboard() {
   const pageStart = (currentPage - 1) * PAGE_SIZE;
 
   return (
-    <section className="space-y-6">
+    <section className="studio-scroll min-h-screen bg-white px-5 py-5 text-[#111] md:px-7 md:py-6">
       {toastMessage ? (
         <div className="pointer-events-none fixed right-6 top-6 z-[70]">
           <ToastAlert
@@ -275,99 +275,93 @@ export default function CustomerListDashboard() {
         </div>
       ) : null}
 
-      <div className="rounded-[28px] border border-black/8 bg-white px-8 py-8 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
-        <p className="text-sm font-medium text-[#ff6a1a]">Customer Dashboard</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-neutral-900">
-          List
-        </h2>
-        <p className="mt-3 max-w-[720px] text-sm leading-6 text-neutral-500">
-          고객 문의 목록을 확인하고, 이후 수정 및 삭제 기능을 붙일 수 있도록
-          준비된 미니멀 대시보드입니다.
-        </p>
-      </div>
+      <div className="mx-auto grid w-full max-w-[1440px] gap-3">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-h-[84px] flex-col justify-center rounded-[16px] border border-[#f0f0f0] bg-white p-4">
+            <p className="text-[12px] font-medium text-[#ff7a2f]">문의 관리</p>
+            <div className="mt-1 flex flex-col gap-2 md:flex-row md:items-end md:gap-4">
+              <h1 className="shrink-0 font-[var(--font-serif)] text-[26px] tracking-[-0.03em] text-[#111]">
+                고객 문의
+              </h1>
+              <p className="pb-1 text-[13px] leading-5 text-[#777]">
+                접수된 문의를 확인하고 필요한 정보만 빠르게 수정합니다.
+              </p>
+            </div>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-[24px] border border-black/8 bg-white px-6 py-5 shadow-[0_8px_24px_rgba(0,0,0,0.04)]">
-          <div className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
-            Total
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "전체", value: stats.total },
+              { label: "오늘", value: stats.today },
+              { label: "7일", value: stats.weekly },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="flex min-h-[84px] flex-col justify-center rounded-[16px] border border-[#f0f0f0] bg-[#fafafa] px-3 py-2.5"
+              >
+                <div className="text-[11px] font-medium text-[#999]">
+                  {item.label}
+                </div>
+                <div className="mt-1 text-[24px] font-semibold tracking-[-0.04em] text-[#111]">
+                  {item.value}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-neutral-900">
-            {stats.total}
-          </div>
-          <div className="mt-2 text-sm text-neutral-500">전체 고객 문의</div>
         </div>
-        <div className="rounded-[24px] border border-black/8 bg-white px-6 py-5 shadow-[0_8px_24px_rgba(0,0,0,0.04)]">
-          <div className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
-            Today
-          </div>
-          <div className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-neutral-900">
-            {stats.today}
-          </div>
-          <div className="mt-2 text-sm text-neutral-500">오늘 문의</div>
-        </div>
-        <div className="rounded-[24px] border border-black/8 bg-white px-6 py-5 shadow-[0_8px_24px_rgba(0,0,0,0.04)]">
-          <div className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
-            Last 7 Days
-          </div>
-          <div className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-neutral-900">
-            {stats.weekly}
-          </div>
-          <div className="mt-2 text-sm text-neutral-500">최근 7일 문의</div>
-        </div>
-      </div>
 
-      <div className="rounded-[28px] border border-black/8 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-col gap-4 border-b border-black/6 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div className="rounded-[16px] border border-[#f0f0f0] bg-white">
+          <div className="flex flex-col gap-3 border-b border-[#f3f3f3] p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-lg font-semibold tracking-[-0.02em] text-neutral-900">
-              Customer List
+            <div className="font-[var(--font-serif)] text-[20px] tracking-[-0.02em] text-[#111]">
+              문의 목록
             </div>
-            <div className="mt-1 text-sm text-neutral-500">
-              한 페이지당 10개씩 표시됩니다.
+            <div className="mt-1 text-[12px] text-[#999]">
+              10개씩 보기
             </div>
           </div>
 
-          <label className="flex h-11 w-full max-w-[280px] items-center gap-3 rounded-full border border-black/8 bg-[#fafafa] px-4 text-sm text-neutral-500">
-            <Search className="h-4 w-4 text-neutral-400" />
+          <label className="flex h-10 w-full max-w-[320px] items-center gap-2 rounded-full border border-[#ededed] bg-[#fafafa] px-3 text-[13px] text-[#777] transition focus-within:border-[#ffcfb0] focus-within:bg-[#fffaf6]">
+            <Search className="h-4 w-4 text-[#ff7a2f]" />
             <input
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
                 setPage(1);
               }}
-              placeholder="사업장위치, 이름, 연락처, 이메일 검색"
-              className="w-full bg-transparent outline-none placeholder:text-neutral-400"
+              placeholder="이름, 연락처, 이메일"
+              className="w-full bg-transparent outline-none placeholder:text-[#b8b8b8]"
             />
           </label>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="studio-scroll overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
-              <tr className="border-b border-black/6 bg-[#fcfcfc]">
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                  사업자번호
+              <tr className="border-b border-[#f3f3f3] bg-[#fafafa]">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
+                  사업자
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                  사업장위치
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
+                  위치
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
                   이름
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
                   연락처
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
                   이메일
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
                   추천인
                 </th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                <th className="px-4 py-3 text-left text-[12px] font-medium text-[#999]">
                   접수일
                 </th>
-                <th className="px-6 py-4 text-right text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
-                  액션
+                <th className="px-4 py-3 text-right text-[12px] font-medium text-[#999]">
+                  관리
                 </th>
               </tr>
             </thead>
@@ -376,9 +370,12 @@ export default function CustomerListDashboard() {
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-6 py-12 text-center text-sm text-neutral-400"
+                    className="px-4 py-12 text-center text-[13px] text-[#999]"
                   >
-                    고객 리스트를 불러오는 중입니다.
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-[#ff7a2f]" />
+                      불러오는 중
+                    </span>
                   </td>
                 </tr>
               ) : null}
@@ -386,7 +383,7 @@ export default function CustomerListDashboard() {
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-6 py-12 text-center text-sm text-[#d14f2a]"
+                    className="px-4 py-12 text-center text-[13px] text-[#d14f2a]"
                   >
                     {errorMessage}
                   </td>
@@ -396,52 +393,52 @@ export default function CustomerListDashboard() {
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-6 py-12 text-center text-sm text-neutral-400"
+                    className="px-4 py-12 text-center text-[13px] text-[#999]"
                   >
-                    표시할 고객이 없습니다.
+                    문의 없음
                   </td>
                 </tr>
               ) : null}
               {currentRows.map((customer) => (
                 <tr
                   key={customer.id}
-                  className="border-b border-black/6 last:border-b-0"
+                  className="border-b border-[#f5f5f5] transition hover:bg-[#fffaf6] last:border-b-0"
                 >
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-neutral-900">
+                  <td className="px-4 py-3">
+                    <div className="text-[13px] font-medium text-[#111]">
                       {customer.businessNumber}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-neutral-900">
+                  <td className="px-4 py-3">
+                    <div className="max-w-[180px] truncate text-[13px] font-medium text-[#111]">
                       {customer.businessLocation}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-neutral-800">
+                  <td className="px-4 py-3">
+                    <div className="text-[13px] font-medium text-[#333]">
                       {customer.name}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-neutral-700">
+                  <td className="px-4 py-3 text-[13px] text-[#555]">
                     {customer.phone}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
+                  <td className="px-4 py-3 text-[13px] font-medium text-[#555]">
                     {customer.email}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
+                  <td className="px-4 py-3 text-[13px] font-medium text-[#555]">
                     {customer.referrer || "-"}
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
+                  <td className="px-4 py-3 text-[13px] font-medium text-[#555]">
                     {formatDate(customer.createdAt)}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => openCustomerModal(customer)}
-                        className="inline-flex h-9 items-center justify-center rounded-full border border-black/8 bg-white px-3 text-xs font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                        className="inline-flex h-8 items-center justify-center rounded-full bg-[#fff0e6] px-3 text-[12px] font-medium text-[#ff7a2f] transition hover:bg-[#fff4ed]"
                       >
-                        상세보기
+                        보기
                       </button>
                       <button
                         type="button"
@@ -449,7 +446,7 @@ export default function CustomerListDashboard() {
                           setDeleteTarget(customer);
                           setDeleteErrorMessage("");
                         }}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-[#ffd6cf] hover:bg-[#fff7f5] hover:text-[#d14f2a]"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ededed] bg-white text-[#999] transition hover:border-[#ffd6cf] hover:bg-[#fff7f5] hover:text-[#d14f2a]"
                         aria-label="삭제"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -462,10 +459,10 @@ export default function CustomerListDashboard() {
           </table>
         </div>
 
-        <div className="flex flex-col items-center gap-4 border-t border-black/6 px-6 py-5">
-          <div className="text-center text-sm text-neutral-500">
+        <div className="flex flex-col items-center gap-3 border-t border-[#f3f3f3] px-4 py-4">
+          <div className="text-center text-[12px] text-[#999]">
             {pagination.total === 0
-              ? "표시할 고객이 없습니다."
+              ? "문의 없음"
               : `${pageStart + 1}-${Math.min(
                   pageStart + pagination.pageSize,
                   pagination.total,
@@ -477,7 +474,7 @@ export default function CustomerListDashboard() {
               type="button"
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ededed] bg-white text-[#777] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="이전 페이지"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -491,10 +488,10 @@ export default function CustomerListDashboard() {
                   key={pageNumber}
                   type="button"
                   onClick={() => setPage(pageNumber)}
-                  className={`inline-flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-medium transition ${
+                  className={`inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-[13px] font-medium transition ${
                     active
-                      ? "bg-neutral-900 text-white"
-                      : "border border-black/8 bg-white text-neutral-500 hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-800"
+                      ? "bg-[#ff7a2f] text-white"
+                      : "border border-[#ededed] bg-white text-[#777] hover:bg-[#fafafa] hover:text-[#111]"
                   }`}
                 >
                   {pageNumber}
@@ -505,7 +502,7 @@ export default function CustomerListDashboard() {
               type="button"
               onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ededed] bg-white text-[#777] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="다음 페이지"
             >
               <ChevronRight className="h-4 w-4" />
@@ -514,20 +511,22 @@ export default function CustomerListDashboard() {
         </div>
       </div>
 
+      </div>
+
       {selectedCustomer ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/18 px-4 py-6 backdrop-blur-[6px]">
-          <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[30px] border border-black/8 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]">
-            <div className="flex items-start justify-between border-b border-black/6 px-7 py-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4 py-6 backdrop-blur-sm">
+          <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[20px] border border-[#f0f0f0] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between border-b border-[#f3f3f3] px-5 py-5">
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-                  {isEditMode ? "Edit Customer" : "Customer Detail"}
+                <div className="text-[12px] font-medium text-[#ff7a2f]">
+                  {isEditMode ? "문의 수정" : "상세 정보"}
                 </div>
-                <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-neutral-900">
+                <div className="mt-1 font-[var(--font-serif)] text-[24px] tracking-[-0.03em] text-[#111]">
                   {isEditMode ? "고객 문의 수정" : selectedCustomer.name}
                 </div>
-                <div className="mt-1 text-sm text-neutral-500">
+                <div className="mt-1 text-[13px] text-[#777]">
                   {isEditMode
-                    ? "입력값을 수정한 뒤 저장하면 유효성 검사 후 반영됩니다."
+                    ? "수정 후 저장합니다."
                     : selectedCustomer.businessLocation}
                 </div>
               </div>
@@ -535,14 +534,14 @@ export default function CustomerListDashboard() {
               <button
                 type="button"
                 onClick={closeCustomerModal}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ededed] bg-white text-[#777] transition hover:bg-[#fafafa] hover:text-[#111]"
                 aria-label="닫기"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="studio-scroll overflow-y-auto px-7 py-6">
+            <div className="studio-scroll overflow-y-auto px-5 py-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <EditField
                   label="사업자번호"
@@ -614,7 +613,7 @@ export default function CustomerListDashboard() {
               </div>
 
               {isEditMode && editErrorMessage ? (
-                <div className="mt-5 rounded-[18px] border border-[#ffd6cf] bg-[#fff7f5] px-4 py-3 text-sm text-[#d14f2a]">
+                <div className="mt-5 rounded-[14px] border border-[#ffd6cf] bg-[#fff7f5] px-3 py-2 text-[13px] text-[#d14f2a]">
                   {editErrorMessage}
                 </div>
               ) : null}
@@ -627,7 +626,7 @@ export default function CustomerListDashboard() {
                       onClick={() => {
                         openCustomerModal(selectedCustomer);
                       }}
-                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-[#ededed] bg-white px-4 text-[13px] font-medium text-[#555] transition hover:bg-[#fafafa] hover:text-[#111]"
                     >
                       취소
                     </button>
@@ -635,12 +634,12 @@ export default function CustomerListDashboard() {
                       type="button"
                       onClick={() => void handleSave()}
                       disabled={isSaving}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#ff7a2f] px-4 text-[13px] font-medium text-white transition hover:bg-[#ff8a3d] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : null}
-                      저장하기
+                      저장
                     </button>
                   </>
                 ) : (
@@ -648,7 +647,7 @@ export default function CustomerListDashboard() {
                     <button
                       type="button"
                       onClick={closeCustomerModal}
-                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-[#ededed] bg-white px-4 text-[13px] font-medium text-[#555] transition hover:bg-[#fafafa] hover:text-[#111]"
                     >
                       닫기
                     </button>
@@ -658,9 +657,9 @@ export default function CustomerListDashboard() {
                         setEditErrorMessage("");
                         setIsEditMode(true);
                       }}
-                      className="inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition hover:bg-neutral-800"
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-[#ff7a2f] px-4 text-[13px] font-medium text-white transition hover:bg-[#ff8a3d]"
                     >
-                      수정하기
+                      수정
                     </button>
                   </>
                 )}
@@ -671,34 +670,34 @@ export default function CustomerListDashboard() {
       ) : null}
 
       {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/18 px-4 backdrop-blur-[6px]">
-          <div className="w-full max-w-[440px] rounded-[30px] border border-black/8 bg-white px-7 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.14)]">
-            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-              Delete Customer
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[430px] rounded-[20px] border border-[#f0f0f0] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)]">
+            <div className="text-[12px] font-medium text-[#d14f2a]">
+              삭제 확인
             </div>
-            <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-neutral-900">
+            <div className="mt-1 font-[var(--font-serif)] text-[24px] tracking-[-0.03em] text-[#111]">
               정말 삭제할까요?
             </div>
-            <p className="mt-3 text-sm leading-6 text-neutral-500">
-              <span className="font-medium text-neutral-800">
+            <p className="mt-3 text-[13px] leading-6 text-[#777]">
+              <span className="font-medium text-[#111]">
                 {deleteTarget.name}
               </span>
               {" · "}
               {deleteTarget.businessLocation}
-              문의를 삭제합니다. 삭제 후에는 되돌릴 수 없습니다.
+              문의를 삭제합니다.
             </p>
 
             {deleteErrorMessage ? (
-              <div className="mt-5 rounded-[18px] border border-[#ffd6cf] bg-[#fff7f5] px-4 py-3 text-sm text-[#d14f2a]">
+              <div className="mt-5 rounded-[14px] border border-[#ffd6cf] bg-[#fff7f5] px-3 py-2 text-[13px] text-[#d14f2a]">
                 {deleteErrorMessage}
               </div>
             ) : null}
 
-            <div className="mt-6 flex items-center justify-end gap-3">
+            <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={closeDeleteModal}
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-[#ededed] bg-white px-4 text-[13px] font-medium text-[#555] transition hover:bg-[#fafafa] hover:text-[#111]"
               >
                 취소
               </button>
@@ -706,10 +705,10 @@ export default function CustomerListDashboard() {
                 type="button"
                 onClick={() => void handleDeleteConfirm()}
                 disabled={isDeleting}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#d14f2a] px-5 text-sm font-medium text-white transition hover:bg-[#bd4522] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#d14f2a] px-4 text-[13px] font-medium text-white transition hover:bg-[#bd4522] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                삭제하기
+                삭제
               </button>
             </div>
           </div>
@@ -722,10 +721,10 @@ export default function CustomerListDashboard() {
 function StaticField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
+      <div className="text-[11px] font-medium text-[#777]">
         {label}
       </div>
-      <div className="mt-2 rounded-[18px] border border-black/8 bg-[#fafafa] px-4 py-3 text-sm text-neutral-800">
+      <div className="mt-2 rounded-[12px] border border-[#ededed] bg-[#fafafa] px-3 py-3 text-[13px] text-[#555]">
         {value || "-"}
       </div>
     </div>
@@ -747,7 +746,7 @@ function EditField({
 }) {
   return (
     <label className="block">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
+      <div className="text-[11px] font-medium text-[#777]">
         {label}
       </div>
       <input
@@ -755,10 +754,10 @@ function EditField({
         onChange={(event) => onChange(event.target.value)}
         readOnly={readOnly}
         placeholder={placeholder}
-        className={`mt-2 h-12 w-full rounded-[18px] border border-black/8 px-4 text-sm text-neutral-800 outline-none transition ${
+        className={`mt-2 h-10 w-full rounded-[12px] border px-3 text-[13px] outline-none transition ${
           readOnly
-            ? "cursor-default bg-[#fafafa] text-neutral-700"
-            : "bg-[#fafafa] focus:border-black/14 focus:bg-white"
+            ? "cursor-default border-[#ededed] bg-[#fafafa] text-[#555]"
+            : "border-[#ededed] bg-white text-[#111] focus:border-[#ffcfb0] focus:bg-[#fffaf6]"
         }`}
       />
     </label>
@@ -780,7 +779,7 @@ function EditTextArea({
 }) {
   return (
     <label className="block">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
+      <div className="text-[11px] font-medium text-[#777]">
         {label}
       </div>
       <textarea
@@ -788,10 +787,10 @@ function EditTextArea({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         readOnly={readOnly}
-        className={`mt-2 w-full rounded-[22px] border border-black/8 px-4 py-4 text-sm leading-7 text-neutral-800 outline-none transition ${
+        className={`studio-scroll mt-2 w-full rounded-[12px] border px-3 py-3 text-[13px] leading-6 outline-none transition ${
           readOnly
-            ? "cursor-default resize-none bg-[#fafafa] text-neutral-700"
-            : "resize-none bg-[#fafafa] focus:border-black/14 focus:bg-white"
+            ? "cursor-default resize-none border-[#ededed] bg-[#fafafa] text-[#555]"
+            : "resize-none border-[#ededed] bg-white text-[#111] focus:border-[#ffcfb0] focus:bg-[#fffaf6]"
         }`}
       />
     </label>

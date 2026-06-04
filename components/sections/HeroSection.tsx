@@ -84,7 +84,7 @@ export default function HeroSection() {
               </a>
 
               <Link
-                href="/consult"
+                href="/apply"
                 className="inline-flex h-[42px] items-center gap-2 rounded-full border border-[#ededed] bg-white px-5 text-[13px] font-medium text-[#111] transition hover:bg-[#fafafa]"
               >
                 제작 문의
