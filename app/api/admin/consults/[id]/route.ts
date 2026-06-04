@@ -24,6 +24,7 @@ export async function PATCH(
       name: String(body.name ?? ""),
       phone: String(body.phone ?? ""),
       email: String(body.email ?? ""),
+      referrer: String(body.referrer ?? ""),
       restaurantInfo: String(body.restaurantInfo ?? ""),
       requestNote: String(body.requestNote ?? ""),
     });

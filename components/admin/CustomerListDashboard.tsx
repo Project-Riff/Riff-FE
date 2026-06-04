@@ -4,12 +4,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Pencil,
   Search,
   Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   ConsultPayload,
   ConsultListItem,
@@ -27,6 +26,7 @@ const emptyEditForm: EditFormState = {
   name: "",
   phone: "",
   email: "",
+  referrer: "",
   restaurantInfo: "",
   requestNote: "",
 };
@@ -53,9 +53,7 @@ export default function CustomerListDashboard() {
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedCustomer, setSelectedCustomer] =
     useState<ConsultListItem | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<ConsultListItem | null>(
-    null,
-  );
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editForm, setEditForm] = useState<EditFormState>(emptyEditForm);
   const [editErrorMessage, setEditErrorMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ConsultListItem | null>(null);
@@ -108,8 +106,9 @@ export default function CustomerListDashboard() {
     void fetchConsults();
   }, [page, trimmedQuery]);
 
-  function openEditModal(customer: ConsultListItem) {
-    setEditingCustomer(customer);
+  function openCustomerModal(customer: ConsultListItem) {
+    setSelectedCustomer(customer);
+    setIsEditMode(false);
     setEditErrorMessage("");
     setEditForm({
       businessNumber: customer.businessNumber,
@@ -117,13 +116,15 @@ export default function CustomerListDashboard() {
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
+      referrer: customer.referrer,
       restaurantInfo: customer.restaurantInfo,
       requestNote: customer.requestNote,
     });
   }
 
-  function closeEditModal() {
-    setEditingCustomer(null);
+  function closeCustomerModal() {
+    setSelectedCustomer(null);
+    setIsEditMode(false);
     setEditForm(emptyEditForm);
     setEditErrorMessage("");
     setIsSaving(false);
@@ -143,16 +144,14 @@ export default function CustomerListDashboard() {
     setEditErrorMessage("");
   }
 
-  async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!editingCustomer) return;
+  async function handleSave() {
+    if (!selectedCustomer || !isEditMode) return;
 
     setIsSaving(true);
     setEditErrorMessage("");
 
     try {
-      const response = await fetch(`/api/admin/consults/${editingCustomer.id}`, {
+      const response = await fetch(`/api/admin/consults/${selectedCustomer.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -165,7 +164,24 @@ export default function CustomerListDashboard() {
         throw new Error(result.error || "고객 문의 수정 중 오류가 발생했습니다.");
       }
 
-      closeEditModal();
+      setSelectedCustomer((prev) =>
+        prev
+          ? {
+              ...prev,
+              businessNumber: editForm.businessNumber,
+              businessLocation: editForm.businessLocation,
+              name: editForm.name,
+              phone: editForm.phone,
+              email: editForm.email,
+              referrer: editForm.referrer,
+              restaurantInfo: editForm.restaurantInfo,
+              requestNote: editForm.requestNote,
+            }
+          : prev,
+      );
+      setIsEditMode(false);
+      setEditErrorMessage("");
+      setIsSaving(false);
       await fetchConsults();
     } catch (error) {
       console.error("[admin/list] update error:", error);
@@ -318,6 +334,9 @@ export default function CustomerListDashboard() {
                   이메일
                 </th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+                  추천인
+                </th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
                   접수일
                 </th>
                 <th className="px-6 py-4 text-right text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
@@ -329,7 +348,7 @@ export default function CustomerListDashboard() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-sm text-neutral-400"
                   >
                     고객 리스트를 불러오는 중입니다.
@@ -339,7 +358,7 @@ export default function CustomerListDashboard() {
               {!isLoading && errorMessage ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-sm text-[#d14f2a]"
                   >
                     {errorMessage}
@@ -349,7 +368,7 @@ export default function CustomerListDashboard() {
               {!isLoading && !errorMessage && currentRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-sm text-neutral-400"
                   >
                     표시할 고객이 없습니다.
@@ -379,28 +398,23 @@ export default function CustomerListDashboard() {
                   <td className="px-6 py-4 text-sm text-neutral-700">
                     {customer.phone}
                   </td>
-                  <td className="px-6 py-4 text-sm text-neutral-500">
+                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
                     {customer.email}
                   </td>
-                  <td className="px-6 py-4 text-sm text-neutral-500">
+                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
+                    {customer.referrer || "-"}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-neutral-700">
                     {formatDate(customer.createdAt)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => setSelectedCustomer(customer)}
+                        onClick={() => openCustomerModal(customer)}
                         className="inline-flex h-9 items-center justify-center rounded-full border border-black/8 bg-white px-3 text-xs font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
                       >
                         상세보기
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(customer)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-800"
-                        aria-label="수정"
-                      >
-                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -474,78 +488,26 @@ export default function CustomerListDashboard() {
       </div>
 
       {selectedCustomer ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/18 px-4 backdrop-blur-[6px]">
-          <div className="w-full max-w-[760px] rounded-[30px] border border-black/8 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]">
-            <div className="flex items-start justify-between border-b border-black/6 px-7 py-6">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-                  Customer Detail
-                </div>
-                <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-neutral-900">
-                  {selectedCustomer.name}
-                </div>
-                <div className="mt-1 text-sm text-neutral-500">
-                  {selectedCustomer.businessLocation}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCustomer(null)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
-                aria-label="닫기"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid gap-6 px-7 py-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <DetailField label="사업자번호" value={selectedCustomer.businessNumber} />
-                <DetailField label="사업장위치" value={selectedCustomer.businessLocation} />
-                <DetailField label="이름" value={selectedCustomer.name} />
-                <DetailField label="연락처" value={selectedCustomer.phone} />
-                <DetailField label="이메일" value={selectedCustomer.email} />
-                <DetailField
-                  label="접수일"
-                  value={formatDate(selectedCustomer.createdAt)}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <DetailBlock
-                  label="음식점 정보"
-                  value={selectedCustomer.restaurantInfo}
-                />
-                <DetailBlock
-                  label="요청사항"
-                  value={selectedCustomer.requestNote || "별도 요청사항 없음"}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {editingCustomer ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/18 px-4 py-6 backdrop-blur-[6px]">
           <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[760px] flex-col overflow-hidden rounded-[30px] border border-black/8 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]">
             <div className="flex items-start justify-between border-b border-black/6 px-7 py-6">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-                  Edit Customer
+                  {isEditMode ? "Edit Customer" : "Customer Detail"}
                 </div>
                 <div className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-neutral-900">
-                  고객 문의 수정
+                  {isEditMode ? "고객 문의 수정" : selectedCustomer.name}
                 </div>
                 <div className="mt-1 text-sm text-neutral-500">
-                  입력값을 수정한 뒤 저장하면 유효성 검사 후 반영됩니다.
+                  {isEditMode
+                    ? "입력값을 수정한 뒤 저장하면 유효성 검사 후 반영됩니다."
+                    : selectedCustomer.businessLocation}
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={closeEditModal}
+                onClick={closeCustomerModal}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-white text-neutral-500 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
                 aria-label="닫기"
               >
@@ -553,44 +515,64 @@ export default function CustomerListDashboard() {
               </button>
             </div>
 
-            <form
-              onSubmit={handleEditSubmit}
-              className="studio-scroll overflow-y-auto px-7 py-6"
-            >
+            <div className="studio-scroll overflow-y-auto px-7 py-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <EditField
                   label="사업자번호"
                   value={editForm.businessNumber}
                   onChange={(value) => updateEditField("businessNumber", value)}
+                  readOnly={!isEditMode}
                 />
                 <EditField
                   label="사업장위치"
                   value={editForm.businessLocation}
                   onChange={(value) => updateEditField("businessLocation", value)}
+                  readOnly={!isEditMode}
                 />
                 <EditField
                   label="이름"
                   value={editForm.name}
                   onChange={(value) => updateEditField("name", value)}
+                  readOnly={!isEditMode}
                 />
                 <EditField
                   label="연락처"
                   value={editForm.phone}
                   onChange={(value) => updateEditField("phone", value)}
+                  readOnly={!isEditMode}
                 />
                 <div className="md:col-span-2">
                   <EditField
                     label="이메일"
                     value={editForm.email}
                     onChange={(value) => updateEditField("email", value)}
+                    readOnly={!isEditMode}
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <EditField
+                    label="추천인"
+                    value={editForm.referrer}
+                    onChange={(value) => updateEditField("referrer", value)}
+                    readOnly={!isEditMode}
+                    placeholder="추천인이 없다면 비워둘 수 있습니다"
+                  />
+                </div>
+                {!isEditMode ? (
+                  <div className="md:col-span-2">
+                    <StaticField
+                      label="접수일"
+                      value={formatDate(selectedCustomer.createdAt)}
+                    />
+                  </div>
+                ) : null}
                 <div className="md:col-span-2">
                   <EditTextArea
                     label="음식점 정보"
                     value={editForm.restaurantInfo}
                     onChange={(value) => updateEditField("restaurantInfo", value)}
                     rows={5}
+                    readOnly={!isEditMode}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -599,34 +581,64 @@ export default function CustomerListDashboard() {
                     value={editForm.requestNote}
                     onChange={(value) => updateEditField("requestNote", value)}
                     rows={4}
-                  />
+                    readOnly={!isEditMode}
+                    />
                 </div>
               </div>
 
-              {editErrorMessage ? (
+              {isEditMode && editErrorMessage ? (
                 <div className="mt-5 rounded-[18px] border border-[#ffd6cf] bg-[#fff7f5] px-4 py-3 text-sm text-[#d14f2a]">
                   {editErrorMessage}
                 </div>
               ) : null}
 
               <div className="mt-6 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  저장하기
-                </button>
+                {isEditMode ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openCustomerModal(selectedCustomer);
+                      }}
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSave()}
+                      disabled={isSaving}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      저장하기
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={closeCustomerModal}
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-neutral-600 transition hover:border-black/12 hover:bg-neutral-50 hover:text-neutral-900"
+                    >
+                      닫기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditErrorMessage("");
+                        setIsEditMode(true);
+                      }}
+                      className="inline-flex h-11 items-center justify-center rounded-full bg-neutral-900 px-5 text-sm font-medium text-white transition hover:bg-neutral-800"
+                    >
+                      수정하기
+                    </button>
+                  </>
+                )}
               </div>
-            </form>
+            </div>
           </div>
         </div>
       ) : null}
@@ -680,7 +692,7 @@ export default function CustomerListDashboard() {
   );
 }
 
-function DetailField({ label, value }: { label: string; value: string }) {
+function StaticField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
@@ -693,27 +705,18 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
-        {label}
-      </div>
-      <div className="mt-2 min-h-[160px] whitespace-pre-wrap rounded-[22px] border border-black/8 bg-[#fafafa] px-4 py-4 text-sm leading-7 text-neutral-700">
-        {value || "-"}
-      </div>
-    </div>
-  );
-}
-
 function EditField({
   label,
   value,
   onChange,
+  placeholder = "",
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block">
@@ -723,7 +726,13 @@ function EditField({
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-12 w-full rounded-[18px] border border-black/8 bg-[#fafafa] px-4 text-sm text-neutral-800 outline-none transition focus:border-black/14 focus:bg-white"
+        readOnly={readOnly}
+        placeholder={placeholder}
+        className={`mt-2 h-12 w-full rounded-[18px] border border-black/8 px-4 text-sm text-neutral-800 outline-none transition ${
+          readOnly
+            ? "cursor-default bg-[#fafafa] text-neutral-700"
+            : "bg-[#fafafa] focus:border-black/14 focus:bg-white"
+        }`}
       />
     </label>
   );
@@ -734,11 +743,13 @@ function EditTextArea({
   value,
   onChange,
   rows,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   rows: number;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block">
@@ -749,7 +760,12 @@ function EditTextArea({
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 w-full resize-none rounded-[22px] border border-black/8 bg-[#fafafa] px-4 py-4 text-sm leading-7 text-neutral-800 outline-none transition focus:border-black/14 focus:bg-white"
+        readOnly={readOnly}
+        className={`mt-2 w-full rounded-[22px] border border-black/8 px-4 py-4 text-sm leading-7 text-neutral-800 outline-none transition ${
+          readOnly
+            ? "cursor-default resize-none bg-[#fafafa] text-neutral-700"
+            : "resize-none bg-[#fafafa] focus:border-black/14 focus:bg-white"
+        }`}
       />
     </label>
   );

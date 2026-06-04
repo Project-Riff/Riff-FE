@@ -6,6 +6,7 @@ export type ConsultPayload = {
   name: string;
   phone: string;
   email: string;
+  referrer: string;
   restaurantInfo: string;
   requestNote: string;
 };
@@ -17,6 +18,7 @@ export type ConsultListItem = {
   name: string;
   phone: string;
   email: string;
+  referrer: string;
   restaurantInfo: string;
   requestNote: string;
   createdAt: string;
@@ -58,6 +60,7 @@ const FIELD_LIMITS = {
   name: 40,
   phone: 16,
   email: 120,
+  referrer: 80,
   restaurantInfo: 2000,
   requestNote: 2000,
 } as const;
@@ -103,6 +106,7 @@ export function normalizeConsultPayload(
     name: payload.name?.trim() ?? "",
     phone: normalizePhone(payload.phone ?? ""),
     email: payload.email?.trim().toLowerCase() ?? "",
+    referrer: payload.referrer?.trim() ?? "",
     restaurantInfo: payload.restaurantInfo?.trim() ?? "",
     requestNote: payload.requestNote?.trim() ?? "",
   };
@@ -147,6 +151,11 @@ export function validateConsultPayload(payload: ConsultPayload) {
   assertMaxLength(payload.name, FIELD_LIMITS.name, "이름 길이를 확인해주세요.");
   assertMaxLength(payload.phone, FIELD_LIMITS.phone, "연락처 길이를 확인해주세요.");
   assertMaxLength(payload.email, FIELD_LIMITS.email, "이메일 길이를 확인해주세요.");
+  assertMaxLength(
+    payload.referrer,
+    FIELD_LIMITS.referrer,
+    "추천인 길이를 확인해주세요.",
+  );
   assertMaxLength(
     payload.restaurantInfo,
     FIELD_LIMITS.restaurantInfo,
@@ -208,6 +217,7 @@ async function insertConsult(payload: ConsultPayload) {
     name: payload.name,
     phone: payload.phone,
     email: payload.email,
+    referrer: payload.referrer || null,
     restaurant_info: payload.restaurantInfo,
     request_note: payload.requestNote || null,
   });
@@ -270,6 +280,7 @@ export async function updateConsult(id: number, payload: Partial<ConsultPayload>
       name: normalizedPayload.name,
       phone: normalizedPayload.phone,
       email: normalizedPayload.email,
+      referrer: normalizedPayload.referrer || null,
       restaurant_info: normalizedPayload.restaurantInfo,
       request_note: normalizedPayload.requestNote || null,
     })
@@ -364,7 +375,7 @@ export async function listConsults(
   let queryBuilder = supabase
     .from(CONSULT_TABLE)
     .select(
-      "id, business_number, business_location, name, phone, email, restaurant_info, request_note, created_at",
+      "id, business_number, business_location, name, phone, email, referrer, restaurant_info, request_note, created_at",
       { count: "exact" },
     )
     .order("created_at", { ascending: false })
@@ -393,6 +404,7 @@ export async function listConsults(
     name: String(item.name ?? ""),
     phone: String(item.phone ?? ""),
     email: String(item.email ?? ""),
+    referrer: String(item.referrer ?? ""),
     restaurantInfo: String(item.restaurant_info ?? ""),
     requestNote: String(item.request_note ?? ""),
     createdAt: String(item.created_at ?? ""),

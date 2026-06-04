@@ -9,6 +9,7 @@ const initialForm = {
   name: "",
   phone: "",
   email: "",
+  referrer: "",
   restaurantInfo: "",
   requestNote: "",
 };
@@ -229,17 +230,21 @@ export default function RequestPage() {
                 error={fieldErrors.phone}
                 required
               />
-              <div className="md:col-span-2">
-                <Field
-                  label="이메일"
-                  type="email"
-                  value={form.email}
-                  onChange={(value) => updateField("email", value)}
-                  placeholder="예: riff@example.com"
-                  error={fieldErrors.email}
-                  required
-                />
-              </div>
+              <Field
+                label="이메일"
+                type="email"
+                value={form.email}
+                onChange={(value) => updateField("email", value)}
+                placeholder="예: riff@example.com"
+                error={fieldErrors.email}
+                required
+              />
+              <Field
+                label="추천인"
+                value={form.referrer ?? ""}
+                onChange={(value) => updateField("referrer", value)}
+                placeholder="추천인이 있다면 입력해주세요"
+              />
             </div>
 
             <div className="mt-3">
