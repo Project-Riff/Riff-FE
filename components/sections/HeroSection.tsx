@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
 import { motion } from "framer-motion";
-import { sampleVideos } from "@/lib/data";
 
 const heroStats = [
   { value: "1,000+", label: "Ryff 영상만으로 2주안에 팔로워" },
@@ -12,7 +11,7 @@ const heroStats = [
   { value: "썸네일 + 본문", label: "영상부터 게시물까지" },
 ];
 
-const sampleSrcs = sampleVideos.map((v) => v.src);
+const sampleSrcs = ["/sample-2.mp4", "/sample-3.mp4"];
 
 const randomDifferent = (prev: number, max: number) => {
   if (max <= 1) return prev;
