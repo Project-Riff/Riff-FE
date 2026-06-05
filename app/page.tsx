@@ -32,14 +32,6 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-x-5 gap-y-1.5">
             <span>대표 염민호</span>
             <span>사업자등록번호 450-87-01864</span>
-            <span>전화 02-6217-1119</span>
-            <span>팩스 02-6217-1115</span>
-            <a
-              href="mailto:help@sfacspace.com"
-              className="transition-colors hover:text-neutral-900"
-            >
-              메일 help@sfacspace.com
-            </a>
           </div>
 
           <p className="text-neutral-400">© 2026. SFACSPACE All Rights Reserved.</p>
