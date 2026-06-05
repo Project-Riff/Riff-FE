@@ -24,7 +24,7 @@ const serif = Noto_Serif_KR({
 });
 
 export const metadata: Metadata = {
-  title: "Riff | AI 매장 홍보 영상 제작",
+  title: "Ryff | 매장 홍보 영상 제작",
   description: "사진과 영상만 보내면 AI로 빠르게 홍보 영상을 제작해드립니다.",
 };
 

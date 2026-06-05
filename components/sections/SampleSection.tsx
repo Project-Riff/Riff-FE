@@ -3,12 +3,13 @@
 import { motion } from "framer-motion";
 
 const thumbnails = [
-  "/Thumbnail-1.png",
-  "/Thumbnail-2.png",
-  "/Thumbnail-3.png",
-  "/Thumbnail-4.png",
-  "/Thumbnail-5.png",
-  "/Thumbnail-6.jpg",
+  "/Thumbnail/thumbnail-1.png",
+  "/Thumbnail/thumbnail-2.png",
+  "/Thumbnail/thumbnail-3.png",
+  "/Thumbnail/thumbnail-4.png",
+  "/Thumbnail/thumbnail-5.png",
+  "/Thumbnail/thumbnail-6.png",
+  "/Thumbnail/thumbnail-7.jpg",
 ];
 
 // 이음새 없는 루프를 위해 전체 목록을 2배로 복제

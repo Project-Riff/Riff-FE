@@ -1,21 +1,17 @@
 export const processItems = [
   {
-    step: "01",
     title: "영상 전달",
     desc: "가게 전경, 메뉴, 분위기 영상을 1개 보내주시면 됩니다.",
   },
   {
-    step: "02",
     title: "AI로 대본과 구성 생성",
     desc: "연구한 알고리즘 분석을 통해, 고객의 지갑을 여는 '판매 최적화 스크립트'를 구성합니다.",
   },
   {
-    step: "03",
     title: "쇼츠 스타일 편집",
     desc: "자막, 템포, 강조 포인트를 넣어 인스타 릴스형 영상으로 완성합니다.",
   },
   {
-    step: "04",
     title: "완성본 전달",
     desc: "완성된 MP4 파일을 바로 업로드 가능한 형태로 제공해드립니다.",
   },
@@ -25,30 +21,29 @@ export const sampleVideos = [
   {
     title: "숨은 동네 맛집 템플릿",
     desc: "희소성과 로컬 감성을 강조하는 홍보 템플릿",
-    src: "/sample-1.mp4",
+    src: "/restaurant/restaurant-1.mp4",
   },
   {
     title: "카페 감성 홍보 영상",
     desc: "분위기와 대표 메뉴를 강조하는 감성형 영상",
-    src: "/sample-2.mp4",
+    src: "/cafe/cafe-3.mp4",
   },
   {
     title: "로컬 매장 홍보 클립",
     desc: "매장 정보와 방문 유도를 함께 담은 템플릿",
-    src: "/sample-3.mp4",
+    src: "/restaurant/restaurant-2.mp4",
   },
 ];
 
 export const pricingItems = [
   {
     name: "Basic",
-    price: "1.900원",
-    originalPrice: "4,900원",
+    price: "4,900원",
     features: [
       "30초 내외 쇼츠 1개",
       "자막 삽입",
+      "나레이션 삽입",
       "빠른 납품",
-      "론칭 기념 특가",
     ],
   },
   {
