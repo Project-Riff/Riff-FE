@@ -35,7 +35,14 @@ export const sampleVideos = [
   },
 ];
 
-export const pricingItems = [
+export interface PricingItem {
+  name: string;
+  price: string;
+  originalPrice?: string;
+  features: string[];
+}
+
+export const pricingItems: PricingItem[] = [
   {
     name: "Basic",
     price: "4,900원",
