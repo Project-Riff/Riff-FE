@@ -21,9 +21,11 @@ export default function Header() {
             href="/"
             className="group inline-flex items-center gap-2.5"
           >
-            <span className="font-[var(--font-serif)] text-[26px] tracking-[-0.04em] text-[#ff7a2f] transition duration-300 group-hover:text-[#ff8a3d]">
-              Riff
-            </span>
+            <img
+              src="/logo.png"
+              alt="Ryff Logo"
+              className="h-8 w-auto object-contain transition duration-300 group-hover:opacity-90"
+            />
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
@@ -50,7 +52,7 @@ export default function Header() {
 
         <div className="flex items-center gap-2.5">
           <a
-            href="https://www.instagram.com/riff_food/"
+            href="https://www.instagram.com/ryff_official/"
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#ff7a2f] text-white shadow-[0_4px_12px_rgba(255,122,47,0.2)] transition-all duration-300 hover:bg-[#ff8a3d] hover:scale-105 active:scale-95"

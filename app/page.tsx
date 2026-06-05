@@ -9,8 +9,8 @@ export default function HomePage() {
   return (
     <main>
       <HeroSection />
-      <ProcessSection />
       <SampleSection />
+      <ProcessSection />
       <PricingSection />
       <RequestSection />
       <FaqSection />
