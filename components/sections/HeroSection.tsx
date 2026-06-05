@@ -1,10 +1,45 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
 import { motion } from "framer-motion";
 
+const heroStats = [
+  { value: "1,000+", label: "Ryff 영상만으로 2주안에 팔로워" },
+  { value: "50+", label: "제작 · 협업 문의" },
+  { value: "썸네일 + 본문", label: "영상부터 게시물까지" },
+];
+
+const sampleSrcs = ["/sample-2.mp4", "/sample-3.mp4"];
+
+const randomDifferent = (prev: number, max: number) => {
+  if (max <= 1) return prev;
+  let next = prev;
+  while (next === prev) {
+    next = Math.floor(Math.random() * max);
+  }
+  return next;
+};
+
 export default function HeroSection() {
+  const [videoIndex, setVideoIndex] = useState(0);
+  const [videoIndex2, setVideoIndex2] = useState(1);
+
+  useEffect(() => {
+    const first = Math.floor(Math.random() * sampleSrcs.length);
+    setVideoIndex(first);
+    setVideoIndex2(randomDifferent(first, sampleSrcs.length));
+  }, []);
+
+  const handleVideoEnded = () => {
+    setVideoIndex((prev) => randomDifferent(prev, sampleSrcs.length));
+  };
+
+  const handleVideoEnded2 = () => {
+    setVideoIndex2((prev) => randomDifferent(prev, sampleSrcs.length));
+  };
+
   return (
     <section className="relative overflow-hidden bg-white">
       <div className="pointer-events-none absolute left-[17%] top-[16%] h-5 w-5 rounded-full bg-orange-400 shadow-[0_0_24px_rgba(251,146,60,0.65)]" />
@@ -76,8 +111,10 @@ export default function HeroSection() {
 
             <div className="mt-7 flex flex-wrap items-center gap-2.5">
               <a
-                href="#samples"
-                className="inline-flex h-[42px] items-center gap-2 rounded-full bg-[#111] px-5 text-[13px] font-medium text-white transition hover:opacity-90"
+                href="https://www.instagram.com/ryff_food/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-[42px] items-center gap-2 rounded-full border border-[#e5e5e5] bg-white px-5 text-[13px] font-medium text-[#111] transition hover:bg-[#fafafa]"
               >
                 <Play size={13} />
                 샘플 보기
@@ -85,7 +122,7 @@ export default function HeroSection() {
 
               <Link
                 href="/apply"
-                className="inline-flex h-[42px] items-center gap-2 rounded-full border border-[#ededed] bg-white px-5 text-[13px] font-medium text-[#111] transition hover:bg-[#fafafa]"
+                className="inline-flex h-[42px] items-center gap-2 rounded-full bg-gradient-to-r from-[#ff8a3d] to-[#ff6a00] px-5 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(255,106,0,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(255,106,0,0.45)]"
               >
                 제작 문의
                 <ArrowRight size={13} />
@@ -103,69 +140,74 @@ export default function HeroSection() {
               <div className="relative grid items-center gap-4 md:grid-cols-[1.05fr_0.95fr] md:gap-5">
                 <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
                   <video
+                    key={sampleSrcs[videoIndex]}
                     className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                    src="/sample-2.mp4"
+                    src={sampleSrcs[videoIndex]}
                     autoPlay
                     muted
-                    loop
                     playsInline
+                    onEnded={handleVideoEnded}
                   />
 
                   <div className="absolute inset-0 bg-black/10" />
                   <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
-
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/45 to-transparent p-5 md:p-6">
-                    <p className="text-[10px] uppercase tracking-[0.14em] text-white/80">
-                      Sample
-                    </p>
-
-                    <p className="mt-1 font-[var(--font-serif)] text-[15px] text-white md:text-[18px]">
-                      감도 있는 매장 숏폼
-                    </p>
-                  </div>
                 </div>
 
-                <div className="relative mx-auto h-[260px] w-full max-w-[260px] md:h-[430px] md:max-w-none">
-                  <motion.div
-                    whileHover={{ y: -4 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="group absolute right-[10px] top-[0px] z-10 w-[138px] rotate-[2deg] overflow-hidden rounded-[22px] shadow-[0_16px_38px_rgba(0,0,0,0.12)] md:right-[-8px] md:top-[8px] md:w-[182px] md:rounded-[28px] md:shadow-[0_20px_48px_rgba(0,0,0,0.12)]"
-                  >
-                    <img
-                      src="/hero-wide.jpg"
-                      alt="mood"
-                      className="aspect-[4/4.8] w-full object-cover transition duration-700 group-hover:scale-[1.05]"
-                    />
-                  </motion.div>
+                <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
+                  <video
+                    key={sampleSrcs[videoIndex2]}
+                    className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                    src={sampleSrcs[videoIndex2]}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={handleVideoEnded2}
+                  />
 
-                  <motion.div
-                    whileHover={{ y: -5 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="group absolute left-[8px] top-[105px] z-30 w-[132px] -rotate-[5deg] overflow-hidden rounded-[20px] border-[4px] border-white bg-white shadow-[0_18px_40px_rgba(0,0,0,0.14)] md:left-[0px] md:top-[172px] md:w-[168px] md:rounded-[24px] md:shadow-[0_22px_50px_rgba(0,0,0,0.15)]"
-                  >
-                    <img
-                      src="/hero-detail-1.jpg"
-                      alt="food"
-                      className="aspect-[4/3.7] w-full object-cover transition duration-700 group-hover:scale-[1.06]"
-                    />
-                  </motion.div>
-
-                  <motion.div
-                    whileHover={{ y: -5 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="group absolute bottom-[8px] right-[24px] z-20 w-[95px] rotate-[4deg] overflow-hidden rounded-[20px] border-[4px] border-white bg-white shadow-[0_16px_34px_rgba(0,0,0,0.13)] md:bottom-[6px] md:right-[10px] md:w-[120px] md:rounded-[24px] md:shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
-                  >
-                    <img
-                      src="/hero-detail-2.jpg"
-                      alt="store"
-                      className="aspect-square w-full object-cover transition duration-700 group-hover:scale-[1.05]"
-                    />
-                  </motion.div>
+                  <div className="absolute inset-0 bg-black/10" />
+                  <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
                 </div>
               </div>
             </div>
           </motion.div>
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.18 }}
+          className="relative mt-12 border-t border-[#f0f0f0] pt-8 md:mt-16"
+        >
+          <div className="relative flex items-center gap-2">
+            <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.7)]" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-600">
+              Real results · 단 2주의 성과
+            </p>
+          </div>
+
+          <div className="relative mt-6 grid grid-cols-1 gap-y-6 sm:grid-cols-3 sm:gap-y-0">
+            {heroStats.map((stat, index) => (
+              <div
+                key={stat.label}
+                className={[
+                  "flex flex-col gap-1.5 sm:px-7",
+                  index !== 0 ? "sm:border-l sm:border-[#f0f0f0]" : "",
+                  index === 0 ? "sm:pl-0" : "",
+                ].join(" ")}
+              >
+                <span className="font-[var(--font-serif)] text-[34px] font-bold leading-none tracking-[-0.03em] md:text-[40px]">
+                  <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent drop-shadow-[0_2px_6px_rgba(249,115,22,0.25)]">
+                    {stat.value}
+                  </span>
+                </span>
+
+                <span className="text-[13px] font-medium leading-[1.6] text-[#555] md:text-[14px]">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </section>
   );

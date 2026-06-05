@@ -23,18 +23,31 @@ export default function FaqSection() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           {faqs.map((item) => (
             <div
               key={item.q}
-              className="rounded-[16px] border border-[#dcdcdc] bg-white p-5"
+              className="group rounded-[18px] border border-[#ececec] bg-[#fcfcfc] p-5 transition-all duration-300 hover:border-[#ffcaa3] hover:bg-white hover:shadow-[0_12px_30px_rgba(255,122,47,0.08)] md:p-6"
             >
-              <h3 className="font-[var(--font-serif)] text-[18px] leading-[1.35] text-[#111]">
-                {item.q}
-              </h3>
-              <p className="mt-3 text-[13px] leading-[1.8] text-[#666]">
-                {item.a}
-              </p>
+              <div className="flex items-start gap-3.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ff8a3d] to-[#ff6a00] text-[14px] font-bold text-white shadow-[0_4px_12px_rgba(255,106,0,0.3)]">
+                  Q
+                </span>
+
+                <h3 className="pt-0.5 font-[var(--font-serif)] text-[18px] font-semibold leading-[1.4] text-[#111] md:text-[19px]">
+                  {item.q}
+                </h3>
+              </div>
+
+              <div className="mt-3.5 flex items-start gap-3.5 border-t border-[#f0f0f0] pt-3.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#e5e5e5] bg-white text-[13px] font-bold text-[#999]">
+                  A
+                </span>
+
+                <p className="pt-0.5 text-[14px] leading-[1.85] text-[#555]">
+                  {item.a}
+                </p>
+              </div>
             </div>
           ))}
         </div>

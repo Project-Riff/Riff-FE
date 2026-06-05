@@ -53,9 +53,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           >
             {isOpen ? (
               <Link href="/admin" className="group inline-flex items-center">
-                <span className="font-[var(--font-serif)] text-[26px] tracking-[-0.04em] text-[#ff7a2f] transition group-hover:text-[#ff8a3d]">
-                  Riff
-                </span>
+                <img
+                  src="/logo.png"
+                  alt="Ryff Logo"
+                  className="h-8 w-auto object-contain transition duration-300 group-hover:opacity-90"
+                />
               </Link>
             ) : null}
 
@@ -115,9 +117,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <div className="mb-3 flex items-center justify-between">
             <Link
               href="/admin"
-              className="font-[var(--font-serif)] text-[25px] tracking-[-0.04em] text-[#ff7a2f]"
+              className="flex items-center"
             >
-              Riff
+              <img
+                src="/logo.png"
+                alt="Ryff Logo"
+                className="h-7 w-auto object-contain"
+              />
             </Link>
             <Link
               href="/"
