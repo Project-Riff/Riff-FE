@@ -19,7 +19,7 @@ export const RemotionRoot = () => {
       width={1080}
       height={1920}
       defaultProps={{
-        videoSrc: '/sample-2.mp4',
+        videoSrc: '/cafe/cafe-3.mp4',
         heroTitle: 'Seoul',
         heroSubtitle: '강남역 5분 거리, 유럽이 펼쳐진다',
         infoSubtitles: [

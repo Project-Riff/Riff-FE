@@ -1,17 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useInView, animate } from "framer-motion";
 
-const heroStats = [
-  { value: "1,000+", label: "Ryff 영상만으로 2주안에 팔로워" },
-  { value: "50+", label: "제작 · 협업 문의" },
+type HeroStat = {
+  value: number | string;
+  suffix?: string;
+  label: string;
+};
+
+const heroStats: HeroStat[] = [
+  { value: 1000, suffix: "+", label: "Ryff 영상만으로 2주안에 팔로워" },
+  { value: 50, suffix: "+", label: "제작 · 협업 문의" },
   { value: "썸네일 + 본문", label: "영상부터 게시물까지" },
 ];
 
-const sampleSrcs = ["/sample-2.mp4", "/sample-3.mp4"];
+function CountUp({ to, suffix }: { to: number; suffix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.2 });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, to, {
+      duration: 1.6,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    });
+    // 애니메이션이 어떤 이유로 끝까지 못 가도 최종값은 보장
+    const fallback = setTimeout(() => setDisplay(to), 2000);
+    return () => {
+      controls.stop();
+      clearTimeout(fallback);
+    };
+  }, [inView, to]);
+
+  return (
+    <span ref={ref}>
+      {display.toLocaleString()}
+      {suffix}
+    </span>
+  );
+}
+
+// 왼쪽: 카페 샘플 / 오른쪽: 레스토랑 샘플
+const cafeSrcs = [
+  "/cafe/cafe-1.mp4",
+  "/cafe/cafe-2.mp4",
+  "/cafe/cafe-3.mp4",
+];
+const restaurantSrcs = [
+  "/restaurant/restaurant-1.mp4",
+  "/restaurant/restaurant-2.mp4",
+  "/restaurant/restaurant-3.mp4",
+  "/restaurant/restaurant-4.mp4",
+  "/restaurant/restaurant-5.mp4",
+];
 
 const randomDifferent = (prev: number, max: number) => {
   if (max <= 1) return prev;
@@ -23,21 +69,21 @@ const randomDifferent = (prev: number, max: number) => {
 };
 
 export default function HeroSection() {
+  // videoIndex = 카페(왼쪽), videoIndex2 = 레스토랑(오른쪽)
   const [videoIndex, setVideoIndex] = useState(0);
-  const [videoIndex2, setVideoIndex2] = useState(1);
+  const [videoIndex2, setVideoIndex2] = useState(0);
 
   useEffect(() => {
-    const first = Math.floor(Math.random() * sampleSrcs.length);
-    setVideoIndex(first);
-    setVideoIndex2(randomDifferent(first, sampleSrcs.length));
+    setVideoIndex(Math.floor(Math.random() * cafeSrcs.length));
+    setVideoIndex2(Math.floor(Math.random() * restaurantSrcs.length));
   }, []);
 
   const handleVideoEnded = () => {
-    setVideoIndex((prev) => randomDifferent(prev, sampleSrcs.length));
+    setVideoIndex((prev) => randomDifferent(prev, cafeSrcs.length));
   };
 
   const handleVideoEnded2 = () => {
-    setVideoIndex2((prev) => randomDifferent(prev, sampleSrcs.length));
+    setVideoIndex2((prev) => randomDifferent(prev, restaurantSrcs.length));
   };
 
   return (
@@ -45,8 +91,8 @@ export default function HeroSection() {
       <div className="pointer-events-none absolute left-[17%] top-[16%] h-5 w-5 rounded-full bg-orange-400 shadow-[0_0_24px_rgba(251,146,60,0.65)]" />
       <div className="pointer-events-none absolute left-[38%] top-[22%] h-3 w-3 rounded-full bg-orange-300/80" />
       <div className="pointer-events-none absolute right-[8%] top-[28%] h-4 w-4 rounded-full bg-orange-400/90 shadow-[0_0_22px_rgba(251,146,60,0.5)]" />
-      <div className="pointer-events-none absolute right-[17%] bottom-[16%] h-3 w-3 rounded-full bg-orange-300/90" />
-      <div className="pointer-events-none absolute left-[28%] bottom-[18%] h-2.5 w-2.5 rounded-full bg-orange-400/70" />
+      <div className="pointer-events-none absolute right-[17%] bottom-[34%] h-3 w-3 rounded-full bg-orange-300/90" />
+      <div className="pointer-events-none absolute left-[28%] bottom-[36%] h-2.5 w-2.5 rounded-full bg-orange-400/70" />
 
       <svg
         className="pointer-events-none absolute left-[-40px] top-[42%] h-[260px] w-[260px]"
@@ -137,16 +183,17 @@ export default function HeroSection() {
             className="w-full"
           >
             <div className="relative mx-auto w-full max-w-[360px] md:max-w-[500px]">
-              <div className="relative grid items-center gap-4 md:grid-cols-[1.05fr_0.95fr] md:gap-5">
+              <div className="relative grid grid-cols-2 items-center gap-3 md:grid-cols-[1.05fr_0.95fr] md:gap-5">
                 <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
                   <video
-                    key={sampleSrcs[videoIndex]}
+                    key={cafeSrcs[videoIndex]}
                     className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                    src={sampleSrcs[videoIndex]}
+                    src={cafeSrcs[videoIndex]}
                     autoPlay
                     muted
                     playsInline
-                    onEnded={handleVideoEnded}
+                    loop={cafeSrcs.length === 1}
+                    onEnded={cafeSrcs.length > 1 ? handleVideoEnded : undefined}
                   />
 
                   <div className="absolute inset-0 bg-black/10" />
@@ -155,9 +202,9 @@ export default function HeroSection() {
 
                 <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
                   <video
-                    key={sampleSrcs[videoIndex2]}
+                    key={restaurantSrcs[videoIndex2]}
                     className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                    src={sampleSrcs[videoIndex2]}
+                    src={restaurantSrcs[videoIndex2]}
                     autoPlay
                     muted
                     playsInline
@@ -197,7 +244,11 @@ export default function HeroSection() {
               >
                 <span className="font-[var(--font-serif)] text-[34px] font-bold leading-none tracking-[-0.03em] md:text-[40px]">
                   <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent drop-shadow-[0_2px_6px_rgba(249,115,22,0.25)]">
-                    {stat.value}
+                    {typeof stat.value === "number" ? (
+                      <CountUp to={stat.value} suffix={stat.suffix} />
+                    ) : (
+                      stat.value
+                    )}
                   </span>
                 </span>
 

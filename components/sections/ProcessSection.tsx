@@ -16,9 +16,9 @@ export default function ProcessSection() {
   return (
     <section
       id="process"
-      className="scroll-mt-24 overflow-hidden bg-white px-6 py-16"
+      className="relative scroll-mt-24 overflow-hidden bg-white px-6 py-16"
     >
-      <div className="mx-auto max-w-[960px]">
+      <div className="relative mx-auto max-w-[960px]">
         <div className="mb-10">
           <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
             Process
@@ -31,7 +31,7 @@ export default function ProcessSection() {
               자연스럽게 진행됩니다
             </h2>
 
-            <p className="hidden max-w-[420px] text-[13px] leading-[1.7] text-[#777] md:block">
+            <p className="hidden max-w-[420px] text-[13px] leading-[1.7] text-[#555] md:block">
               자료 전달부터 최종 전달까지 복잡한 절차 없이 진행됩니다.
             </p>
           </div>
@@ -44,41 +44,39 @@ export default function ProcessSection() {
 
             return (
               <motion.div
-                key={item.step}
+                key={item.title}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.06 }}
-                whileHover={{ y: -4 }}
-                className="group relative overflow-hidden rounded-[16px] border border-[#e9e9e9] bg-[#d7d7d7] p-4 transition-all duration-300 hover:bg-white hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
+                whileHover={{ y: -6 }}
+                className="group relative flex flex-col overflow-hidden rounded-[20px] border border-white/60 bg-white shadow-[0_8px_32px_rgba(31,38,135,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] transition-all duration-300 hover:shadow-[0_16px_44px_rgba(31,38,135,0.16),inset_0_1px_0_rgba(255,255,255,0.85)]"
               >
+                {/* 원본 사진 배경 — 평소엔 숨김, 호버 시에만 표시 */}
                 <div
-                  className="absolute inset-0 bg-cover bg-center opacity-[0.62] saturate-[0.95] brightness-[0.72] contrast-[0.95] transition-all duration-500 group-hover:scale-[1.01] group-hover:opacity-0"
+                  className="absolute inset-0 bg-cover bg-center opacity-0 transition-all duration-500 group-hover:scale-[1.04] group-hover:opacity-100"
                   style={{ backgroundImage: `url(${bgImage})` }}
                 />
 
-                <div className="absolute inset-0 bg-[#3f3f3f]/22 opacity-100 transition duration-500 group-hover:opacity-0" />
+                {/* 가독성용 라이트 워시 — 호버 시에만 */}
+                <div className="absolute inset-0 bg-white/65 opacity-0 backdrop-blur-[1.5px] transition-opacity duration-500 group-hover:opacity-100" />
 
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/35 bg-white/20 text-white backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:border-[#dcdcdc] group-hover:bg-[#fafafa] group-hover:text-[#111]">
+                <div className="relative z-10 flex items-center justify-between p-5 pb-0">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/60 bg-white/55 text-[#ff7a2f] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:bg-[#ff7a2f] group-hover:text-white">
                     <Icon size={16} strokeWidth={1.8} />
                   </div>
 
-                  <span className="text-[10px] font-medium tracking-[0.14em] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)] transition group-hover:text-[#b6b6b6] group-hover:drop-shadow-none">
+                  <span className="text-[11px] font-semibold tracking-[0.14em] text-[#8a7a6f] drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)]">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>
 
-                <div className="relative z-10 mt-4">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)] transition group-hover:text-[#b0b0b0] group-hover:drop-shadow-none">
-                    {item.step}
-                  </p>
-
-                  <h3 className="mt-2 text-[16px] font-semibold leading-[1.35] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] transition group-hover:text-[#111] group-hover:drop-shadow-none">
+                <div className="relative z-10 p-5 pt-4">
+                  <h3 className="text-[16px] font-semibold leading-[1.35] text-[#111] drop-shadow-[0_1px_3px_rgba(255,255,255,0.5)]">
                     {item.title}
                   </h3>
 
-                  <p className="mt-2 text-[12px] font-medium leading-[1.7] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.62)] transition group-hover:text-[#777] group-hover:drop-shadow-none">
+                  <p className="mt-2 text-[12px] font-medium leading-[1.7] text-[#444] drop-shadow-[0_1px_3px_rgba(255,255,255,0.5)]">
                     {item.desc}
                   </p>
                 </div>

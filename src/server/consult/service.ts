@@ -446,7 +446,7 @@ export async function listConsults(
     throw new ConsultSubmissionError("문의 목록 조회 중 오류가 발생했습니다.", 500);
   }
 
-  const items: ConsultListItem[] = (data ?? []).map((item) =>
+  const items: ConsultListItem[] = (data ?? []).map((item: any) =>
     mapConsultRow(item as ConsultRow),
   );
 
