@@ -1,262 +1,138 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
-import { motion, useInView, animate } from "framer-motion";
+import { motion } from "framer-motion";
 
-type HeroStat = {
-  value: number | string;
-  suffix?: string;
-  label: string;
+type FloatingVideoProps = {
+  src: string;
+  poster: string;
+  className: string;
+  delay?: number;
 };
 
-const heroStats: HeroStat[] = [
-  { value: 1000, suffix: "+", label: "Ryff 영상만으로 2주안에 팔로워" },
-  { value: 50, suffix: "+", label: "제작 · 협업 문의" },
-  { value: "썸네일 + 본문", label: "영상부터 게시물까지" },
+const floatingVideos: FloatingVideoProps[] = [
+  {
+    src: "/restaurant/restaurant-1.mp4",
+    poster: "/hero-detail-1.jpg",
+    className: "left-[9%] top-[13%] w-[108px] lg:left-[11%] lg:top-[13%] lg:w-[122px] xl:left-[12%] xl:w-[128px]",
+    delay: 0.2,
+  },
+  {
+    src: "/cafe/cafe-1.mp4",
+    poster: "/card4.jpg",
+    className: "right-[9%] top-[11%] w-[112px] lg:right-[11%] lg:top-[11%] lg:w-[128px] xl:right-[12%] xl:w-[136px]",
+    delay: 0.45,
+  },
+  {
+    src: "/restaurant/restaurant-4.mp4",
+    poster: "/hero-detail-2.jpg",
+    className: "left-[1%] top-[48%] w-[142px] lg:left-[2%] lg:top-[46%] lg:w-[164px] xl:left-[2%] xl:w-[178px]",
+    delay: 0.7,
+  },
+  {
+    src: "/cafe/cafe-2.mp4",
+    poster: "/Thumbnail/thumbnail-1.png",
+    className: "right-[1%] top-[48%] w-[144px] lg:right-[2%] lg:top-[46%] lg:w-[168px] xl:right-[2%] xl:w-[184px]",
+    delay: 0.95,
+  },
+  {
+    src: "/restaurant/restaurant-2.mp4",
+    poster: "/hero-detail-2.jpg",
+    className: "bottom-[4%] left-[22%] w-[84px] lg:bottom-[5%] lg:left-[26%] lg:w-[96px] xl:left-[27%] xl:w-[102px]",
+    delay: 1.2,
+  },
 ];
 
-function CountUp({ to, suffix }: { to: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.2 });
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(0, to, {
-      duration: 1.6,
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => setDisplay(Math.round(v)),
-    });
-    // 애니메이션이 어떤 이유로 끝까지 못 가도 최종값은 보장
-    const fallback = setTimeout(() => setDisplay(to), 2000);
-    return () => {
-      controls.stop();
-      clearTimeout(fallback);
-    };
-  }, [inView, to]);
-
+function FloatingVideo({
+  src,
+  poster,
+  className,
+  delay = 0,
+}: FloatingVideoProps) {
   return (
-    <span ref={ref}>
-      {display.toLocaleString()}
-      {suffix}
-    </span>
+    <motion.div
+      initial={{ opacity: 0, y: 28, rotateY: -54, scale: 0.78 }}
+      animate={{
+        opacity: 1,
+        y: [0, -10, 0],
+        rotateY: [-8, 7, -8],
+        rotateX: [3, -2, 3],
+        scale: [1, 1.04, 1],
+      }}
+      transition={{
+        opacity: { duration: 0.7, ease: [0.16, 1, 0.3, 1], delay },
+        scale: { duration: 0.85, ease: [0.16, 1, 0.3, 1], delay },
+        y: { duration: 5.8, repeat: Infinity, ease: "easeInOut", delay },
+        rotateY: { duration: 6.4, repeat: Infinity, ease: "easeInOut", delay },
+        rotateX: { duration: 6.4, repeat: Infinity, ease: "easeInOut", delay },
+      }}
+      className={[
+        "pointer-events-none absolute hidden overflow-hidden rounded-lg border border-black/8 bg-neutral-100 shadow-[0_20px_50px_rgba(7,23,22,0.12)] md:block",
+        className,
+      ].join(" ")}
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <video
+        className="aspect-[9/16] w-full object-cover"
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+      />
+    </motion.div>
   );
 }
 
-// 왼쪽: 카페 샘플 / 오른쪽: 레스토랑 샘플
-const cafeSrcs = [
-  "/cafe/cafe-1.mp4",
-  "/cafe/cafe-2.mp4",
-  "/cafe/cafe-3.mp4",
-];
-const restaurantSrcs = [
-  "/restaurant/restaurant-1.mp4",
-  "/restaurant/restaurant-2.mp4",
-  "/restaurant/restaurant-3.mp4",
-  "/restaurant/restaurant-4.mp4",
-  "/restaurant/restaurant-5.mp4",
-];
-
-const randomDifferent = (prev: number, max: number) => {
-  if (max <= 1) return prev;
-  let next = prev;
-  while (next === prev) {
-    next = Math.floor(Math.random() * max);
-  }
-  return next;
-};
-
 export default function HeroSection() {
-  // videoIndex = 카페(왼쪽), videoIndex2 = 레스토랑(오른쪽)
-  const [videoIndex, setVideoIndex] = useState(0);
-  const [videoIndex2, setVideoIndex2] = useState(0);
-
-  useEffect(() => {
-    setVideoIndex(Math.floor(Math.random() * cafeSrcs.length));
-    setVideoIndex2(Math.floor(Math.random() * restaurantSrcs.length));
-  }, []);
-
-  const handleVideoEnded = () => {
-    setVideoIndex((prev) => randomDifferent(prev, cafeSrcs.length));
-  };
-
-  const handleVideoEnded2 = () => {
-    setVideoIndex2((prev) => randomDifferent(prev, restaurantSrcs.length));
-  };
-
   return (
-    <section className="relative overflow-hidden bg-white">
-      <div className="pointer-events-none absolute left-[17%] top-[16%] h-5 w-5 rounded-full bg-orange-400 shadow-[0_0_24px_rgba(251,146,60,0.65)]" />
-      <div className="pointer-events-none absolute left-[38%] top-[22%] h-3 w-3 rounded-full bg-orange-300/80" />
-      <div className="pointer-events-none absolute right-[8%] top-[28%] h-4 w-4 rounded-full bg-orange-400/90 shadow-[0_0_22px_rgba(251,146,60,0.5)]" />
-      <div className="pointer-events-none absolute right-[17%] bottom-[34%] h-3 w-3 rounded-full bg-orange-300/90" />
-      <div className="pointer-events-none absolute left-[28%] bottom-[36%] h-2.5 w-2.5 rounded-full bg-orange-400/70" />
-
-      <svg
-        className="pointer-events-none absolute left-[-40px] top-[42%] h-[260px] w-[260px]"
-        viewBox="0 0 260 260"
-        fill="none"
-      >
-        <path
-          d="M210 28C118 42 58 94 64 158C70 220 150 236 226 196"
-          stroke="#fb923c"
-          strokeWidth="1.4"
-          strokeDasharray="7 11"
-          opacity="0.35"
-        />
-      </svg>
-
-      <svg
-        className="pointer-events-none absolute right-[-40px] top-[18%] h-[300px] w-[300px]"
-        viewBox="0 0 300 300"
-        fill="none"
-      >
-        <path
-          d="M42 92C95 22 225 34 258 112C292 193 205 256 116 232"
-          stroke="#fb923c"
-          strokeWidth="1.4"
-          strokeDasharray="7 11"
-          opacity="0.38"
-        />
-      </svg>
-
-      <div className="relative mx-auto max-w-[960px] px-6 py-14 md:py-24">
-        <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55 }}
-            className="relative max-w-[420px]"
-          >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
-              Riff short-form studio
-            </p>
-
-            <div className="relative mt-4">
-              <div className="pointer-events-none absolute -left-8 top-3 h-[150px] w-[210px] rounded-full bg-orange-100/45 blur-3xl" />
-              <div className="pointer-events-none absolute left-[120px] top-[16px] h-[95px] w-[120px] rounded-full bg-orange-50/70 blur-2xl" />
-
-              <h1 className="relative z-10 font-[var(--font-serif)] text-[32px] leading-[1.08] tracking-[-0.03em] text-[#111] md:text-[40px] lg:text-[48px]">
-                가게의{" "}
-                <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent drop-shadow-[0_2px_6px_rgba(249,115,22,0.35)]">
-                  온도
-                </span>
-                를
-                <br />
-                남기는 짧은 영상
-              </h1>
-            </div>
-
-            <p className="mt-4 text-[13px] leading-[1.8] text-[#666] md:text-[14px]">
-              사진과 짧은 클립만 보내주시면
-              <br className="hidden md:block" />
-              매장 분위기에 맞는 릴스형 영상으로 정리해드립니다.
-            </p>
-
-            <div className="mt-7 flex flex-wrap items-center gap-2.5">
-              <a
-                href="https://www.instagram.com/ryff_food/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-[42px] items-center gap-2 rounded-full border border-[#e5e5e5] bg-white px-5 text-[13px] font-medium text-[#111] transition hover:bg-[#fafafa]"
-              >
-                <Play size={13} />
-                샘플 보기
-              </a>
-
-              <Link
-                href="/apply"
-                className="inline-flex h-[42px] items-center gap-2 rounded-full bg-gradient-to-r from-[#ff8a3d] to-[#ff6a00] px-5 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(255,106,0,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(255,106,0,0.45)]"
-              >
-                제작 문의
-                <ArrowRight size={13} />
-              </Link>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.06 }}
-            className="w-full"
-          >
-            <div className="relative mx-auto w-full max-w-[360px] md:max-w-[500px]">
-              <div className="relative grid grid-cols-2 items-center gap-3 md:grid-cols-[1.05fr_0.95fr] md:gap-5">
-                <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
-                  <video
-                    key={cafeSrcs[videoIndex]}
-                    className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                    src={cafeSrcs[videoIndex]}
-                    autoPlay
-                    muted
-                    playsInline
-                    loop={cafeSrcs.length === 1}
-                    onEnded={cafeSrcs.length > 1 ? handleVideoEnded : undefined}
-                  />
-
-                  <div className="absolute inset-0 bg-black/10" />
-                  <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
-                </div>
-
-                <div className="group relative mx-auto w-full max-w-[210px] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.13)] md:max-w-[260px] md:rounded-[26px] md:shadow-[0_24px_60px_rgba(0,0,0,0.14)]">
-                  <video
-                    key={restaurantSrcs[videoIndex2]}
-                    className="aspect-[9/16] w-full object-cover transition duration-700 group-hover:scale-[1.03]"
-                    src={restaurantSrcs[videoIndex2]}
-                    autoPlay
-                    muted
-                    playsInline
-                    onEnded={handleVideoEnded2}
-                  />
-
-                  <div className="absolute inset-0 bg-black/10" />
-                  <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
-                </div>
-              </div>
-            </div>
-          </motion.div>
+    <section className="relative isolate overflow-hidden bg-gradient-to-b from-white via-white to-[#fbfaf7] text-[#071716]">
+      <div className="relative mx-auto min-h-[calc(100svh-76px)] max-w-[1240px] px-6 md:px-10">
+        <div className="pointer-events-none absolute inset-0 [perspective:1100px]">
+          {floatingVideos.map((video) => (
+            <FloatingVideo key={video.src} {...video} />
+          ))}
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.18 }}
-          className="relative mt-12 border-t border-[#f0f0f0] pt-8 md:mt-16"
+          transition={{ duration: 0.55 }}
+          className="relative z-10 mx-auto flex min-h-[calc(100svh-76px)] max-w-[560px] flex-col items-center justify-center py-16 text-center md:py-20"
         >
-          <div className="relative flex items-center gap-2">
-            <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.7)]" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-600">
-              Real results · 단 2주의 성과
-            </p>
-          </div>
+          <h1 className="text-[34px] font-semibold leading-[1.3] tracking-[0] text-[#071716] md:text-[52px] lg:text-[58px]">
+            내 가게의 순간을,
+            <br />
+            매출을 올려줄 숏폼으로.
+          </h1>
 
-          <div className="relative mt-6 grid grid-cols-1 gap-y-6 sm:grid-cols-3 sm:gap-y-0">
-            {heroStats.map((stat, index) => (
-              <div
-                key={stat.label}
-                className={[
-                  "flex flex-col gap-1.5 sm:px-7",
-                  index !== 0 ? "sm:border-l sm:border-[#f0f0f0]" : "",
-                  index === 0 ? "sm:pl-0" : "",
-                ].join(" ")}
-              >
-                <span className="font-[var(--font-serif)] text-[34px] font-bold leading-none tracking-[-0.03em] md:text-[40px]">
-                  <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent drop-shadow-[0_2px_6px_rgba(249,115,22,0.25)]">
-                    {typeof stat.value === "number" ? (
-                      <CountUp to={stat.value} suffix={stat.suffix} />
-                    ) : (
-                      stat.value
-                    )}
-                  </span>
-                </span>
+          <p className="mt-5 max-w-[480px] text-[14px] leading-[1.85] text-[#5f6666] md:text-[16px]">
+            촬영한 영상 한 개만 보내주세요. Ryff가 메뉴의 장면, 매장의 분위기,
+            <br className="hidden md:block" />
+            방문을 부르는 포인트를 짧고 선명한 릴스 흐름으로 편집합니다.
+          </p>
 
-                <span className="text-[13px] font-medium leading-[1.6] text-[#555] md:text-[14px]">
-                  {stat.label}
-                </span>
-              </div>
-            ))}
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/apply"
+              className="inline-flex h-[48px] items-center gap-2 rounded-full bg-[#071716] px-6 text-[14px] font-semibold text-white shadow-[0_14px_30px_rgba(7,23,22,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0b2a28]"
+            >
+              제작 문의
+              <ArrowRight size={16} />
+            </Link>
+
+            <a
+              href="https://www.instagram.com/ryff_food/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-[48px] items-center gap-2 rounded-full border border-black/10 bg-white px-6 text-[14px] font-semibold text-[#071716] shadow-[0_10px_24px_rgba(7,23,22,0.08)] transition hover:-translate-y-0.5 hover:border-[#071716]"
+            >
+              <Play size={15} />
+              샘플 보기
+            </a>
           </div>
         </motion.div>
       </div>
