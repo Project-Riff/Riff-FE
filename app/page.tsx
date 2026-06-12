@@ -1,6 +1,11 @@
 import HeroSection from "@/components/sections/HeroSection";
+import IntroSection from "@/components/sections/IntroSection";
+import PhoneRevealSection from "@/components/sections/PhoneRevealSection";
+import SmoothPageScroll from "@/components/SmoothPageScroll";
 import ProcessSection from "@/components/sections/ProcessSection";
 import SampleSection from "@/components/sections/SampleSection";
+import ResultsSection from "@/components/sections/ResultsSection";
+import TransformationSection from "@/components/sections/TransformationSection";
 import PricingSection from "@/components/sections/PricingSection";
 import RequestSection from "@/components/sections/RequestSection";
 import FaqSection from "@/components/sections/FaqSection";
@@ -8,8 +13,13 @@ import FaqSection from "@/components/sections/FaqSection";
 export default function HomePage() {
   return (
     <main>
+      <SmoothPageScroll />
       <HeroSection />
+      <IntroSection />
+      <PhoneRevealSection />
+      <TransformationSection />
       <SampleSection />
+      <ResultsSection />
       <ProcessSection />
       <PricingSection />
       <RequestSection />

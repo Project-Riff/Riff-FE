@@ -17,43 +17,44 @@ const marqueeThumbs = [...thumbnails, ...thumbnails];
 
 export default function SampleSection() {
   return (
-    <section id="samples" className="overflow-hidden bg-white py-14 md:py-16">
-      <div className="mx-auto mb-10 max-w-[960px] px-6">
-        {/* 헤더 */}
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#b8b8b8]">
-          Samples
+    <section
+      id="samples"
+      className="overflow-hidden bg-[#fbfaf7] px-6 py-14 md:px-10 md:py-20"
+    >
+      <div className="mx-auto mb-10 max-w-[1180px]">
+        <p className="font-[var(--font-pretendard)] text-[14px] font-semibold tracking-[0] text-[#ff6b2c]">
+          오늘 찍은 사진이면 됩니다
         </p>
 
-        <div className="mt-3 flex items-end justify-between gap-8">
-          <h2 className="font-[var(--font-serif)] text-[28px] leading-[1.2] tracking-[-0.02em] text-[#111]">
-            <span className="text-[#ff7a2f]">이런 느낌으로,</span>
+        <div className="mt-3 flex max-w-[760px] flex-col gap-4">
+          <h2 className="max-w-[680px] text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+            공들여 찍은 사진이 아니어도
             <br />
-            자연스럽게 제작합니다
+            <span className="text-[#ff6b2c]">릴스로 만들 수 있습니다</span>
           </h2>
 
-          <p className="hidden max-w-[420px] text-[13px] leading-[1.7] text-[#777] md:block">
-            맛집, 카페, 매장 홍보 등 다양한 유형의 쇼츠형 영상을 빠르게 제작합니다.
+          <p className="max-w-[520px] text-[14px] leading-[1.8] text-[#5f6666]">
+            흔들린 컷, 짧은 메뉴 영상, 매장 입구 사진도 충분합니다. Ryff는
+            판매 포인트가 보이는 장면을 골라 짧은 릴스 흐름으로 정리합니다.
           </p>
         </div>
       </div>
 
-      {/* 가로로 흐르는 썸네일 슬라이드 (960px 안으로 제한) */}
-      <div className="relative mx-auto max-w-[960px] overflow-hidden px-6">
-        {/* 좌우 페이드 (아주 약간) */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-3 bg-gradient-to-r from-white to-transparent md:w-4" />
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-3 bg-gradient-to-l from-white to-transparent md:w-4" />
+      <div className="relative mx-auto max-w-[1180px] overflow-hidden">
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-[#fbfaf7] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-[#fbfaf7] to-transparent" />
 
         <motion.div
-          className="flex w-max gap-4 md:gap-5"
+          className="flex w-max gap-3 md:gap-4"
           animate={{ x: ["0%", "-50%"] }}
           transition={{ duration: 40, ease: "linear", repeat: Infinity }}
         >
           {marqueeThumbs.map((src, index) => (
             <div
               key={`${src}-${index}`}
-              className="w-[150px] shrink-0 md:w-[190px]"
+              className="w-[148px] shrink-0 md:w-[196px]"
             >
-              <div className="overflow-hidden rounded-[16px] shadow-[0_14px_34px_rgba(0,0,0,0.1)]">
+              <div className="overflow-hidden rounded-lg border border-black/8 bg-white shadow-[0_14px_34px_rgba(7,23,22,0.08)]">
                 <img
                   src={src}
                   alt="thumbnail"
