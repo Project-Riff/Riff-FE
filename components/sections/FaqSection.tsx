@@ -11,7 +11,7 @@ export default function FaqSection() {
           </p>
 
           <div className="mt-3 flex max-w-[680px] flex-col gap-3">
-            <h2 className="font-[var(--font-pretendard)] text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+            <h2 className="font-[var(--font-pretendard)] text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
               자주 묻는 질문
             </h2>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView } from "framer-motion";
 import { Images, MessageSquareText, TrendingUp } from "lucide-react";
 
 const results = [
@@ -26,6 +27,50 @@ const results = [
   },
 ];
 
+function CountUpValue({
+  value,
+  suffix = "",
+}: {
+  value: number;
+  suffix?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.45 });
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+
+    let frame = 0;
+    const start = performance.now();
+    const duration = 1050;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      setDisplayValue(Math.round(value * eased));
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [inView, value]);
+
+  return (
+    <span ref={ref}>
+      {displayValue.toLocaleString()}
+      {suffix}
+    </span>
+  );
+}
+
 export default function ResultsSection() {
   return (
     <section
@@ -38,16 +83,25 @@ export default function ResultsSection() {
             단 2주의 성과
           </p>
 
-          <h2 className="mt-3 text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+          <h2 className="mt-3 text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
             숫자로 먼저 확인된
             <br />
             <span className="text-[#ff6b2c]">짧은 영상의 반응</span>
           </h2>
 
           <p className="mt-4 max-w-[620px] text-[14px] leading-[1.8] text-[#5f6666]">
-            작은 매장도 콘텐츠가 쌓이면 발견되는 방식이 달라집니다.
-            <br />
-            Ryff는 영상 하나가 노출, 저장, 문의로 이어지는 흐름을 만듭니다.
+            <span className="md:hidden">
+              작은 매장도 콘텐츠가 쌓이면 발견되는 방식이 달라집니다.
+              <br />
+              Ryff는 영상 하나가 노출, 저장, 문의로
+              <br />
+              이어지는 흐름을 만듭니다.
+            </span>
+            <span className="hidden md:inline">
+              작은 매장도 콘텐츠가 쌓이면 발견되는 방식이 달라집니다.
+              <br />
+              Ryff는 영상 하나가 노출, 저장, 문의로 이어지는 흐름을 만듭니다.
+            </span>
           </p>
         </div>
 
@@ -72,7 +126,7 @@ export default function ResultsSection() {
                     "mt-6 font-semibold leading-none tracking-[0] text-[#ff6b2c]",
                     typeof result.value === "number"
                       ? "text-[44px] md:text-[58px]"
-                      : "text-[30px] md:text-[42px]",
+                      : "text-[28px] md:text-[42px]",
                   ].join(" ")}
                   initial={{ opacity: 0, y: 12 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -80,7 +134,10 @@ export default function ResultsSection() {
                   transition={{ duration: 0.45, delay: index * 0.08 }}
                 >
                   {typeof result.value === "number" ? (
-                    `${result.value.toLocaleString()}${result.suffix ?? ""}`
+                    <CountUpValue
+                      value={result.value}
+                      suffix={result.suffix ?? ""}
+                    />
                   ) : (
                     result.value
                   )}

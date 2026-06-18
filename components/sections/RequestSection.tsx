@@ -8,19 +8,22 @@ export default function RequestSection() {
     <section id="request" className="scroll-mt-24 overflow-hidden bg-white">
       <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-6 py-16 md:px-10 md:py-24 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.88fr)]">
         <div>
-          <p className="font-[var(--font-pretendard)] text-[14px] font-semibold tracking-[0] text-[#ff6b2c]">
-            Request
-          </p>
-
-          <div className="mt-3 flex max-w-[620px] flex-col gap-4">
-            <h2 className="font-[var(--font-pretendard)] text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+          <div className="flex max-w-[620px] flex-col gap-4">
+            <h2 className="font-[var(--font-pretendard)] text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
               <span className="text-[#ff7a2f]">제작 문의,</span>
               <br />
               간단하게 남겨주세요
             </h2>
 
             <p className="max-w-[520px] text-[14px] leading-[1.8] text-[#5f6666]">
-              구글폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다.
+              <span className="md:hidden">
+                폼에서 필요한 정보를 작성해주시면
+                <br />
+                빠르게 확인 후 연락드리겠습니다.
+              </span>
+              <span className="hidden md:inline">
+                폼에서 필요한 정보를 작성해주시면 빠르게 확인 후 연락드리겠습니다.
+              </span>
             </p>
 
             <div className="mt-3">
@@ -31,7 +34,7 @@ export default function RequestSection() {
           </div>
         </div>
 
-        <div className="relative min-h-[420px] w-full justify-self-end lg:min-h-[500px]">
+        <div className="relative hidden min-h-[420px] w-full justify-self-end lg:block lg:min-h-[500px]">
           <div className="pointer-events-none absolute inset-x-10 top-8 h-56 rounded-full bg-[#ff6b2c]/12 blur-[70px]" />
 
           <div className="relative ml-auto w-full max-w-[520px] rounded-[24px] border border-black/8 bg-[#fbfaf7] p-5 shadow-[0_28px_90px_rgba(7,23,22,0.10)] md:p-6">

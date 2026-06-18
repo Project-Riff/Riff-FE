@@ -18,9 +18,9 @@ export default function PricingSection() {
           </p>
 
           <div className="mt-3 flex flex-col items-center gap-3">
-            <h2 className="font-[var(--font-pretendard)] text-[34px] font-semibold leading-[1.2] tracking-[0] text-white">
-              처음 시작하기 좋은{" "}
-              <span className="text-[#ff6b2c]">쇼츠 제작 플랜</span>
+            <h2 className="font-[var(--font-pretendard)] text-[28px] font-semibold leading-[1.2] tracking-[0] text-white md:text-[34px]">
+              <span className="block md:inline">처음 시작하기 좋은</span>
+              <span className="text-[#ff6b2c] md:ml-2">쇼츠 제작 플랜</span>
             </h2>
 
             <p className="max-w-[520px] text-[14px] leading-[1.7] text-white/80">

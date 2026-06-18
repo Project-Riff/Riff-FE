@@ -6,13 +6,15 @@ import { ArrowRight } from "lucide-react";
 const examples = [
   {
     label: "카페 메뉴 컷",
-    before: "/hero-detail-2.jpg",
+    before: "/source-videos/cafe-leoiseau.mp4",
+    beforeType: "video",
     after: "/cafe/cafe-1.mp4",
     note: "음료와 테이블 장면을 살려 방문하고 싶은 분위기로 편집",
   },
   {
     label: "식사 테이블 컷",
-    before: "/hero-detail-1.jpg",
+    before: "/source-videos/ronnies-pizza-original.mp4",
+    beforeType: "video",
     after: "/restaurant/restaurant-1.mp4",
     note: "메뉴 구성을 빠르게 보여주고 자막으로 대표 포인트 강조",
   },
@@ -23,15 +25,23 @@ export default function TransformationSection() {
     <section className="overflow-hidden bg-white px-6 py-16 md:px-10 md:py-20">
       <div className="mx-auto max-w-[1180px]">
         <div className="mb-10 max-w-[720px]">
-          <h2 className="text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+          <h2 className="text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
             평범한 촬영본도
             <br />
             <span className="text-[#ff6b2c]">보여주고 싶은 콘텐츠가 됩니다</span>
           </h2>
 
-          <p className="mt-4 max-w-[560px] text-[14px] leading-[1.8] text-[#5f6666]">
-            원본 사진과 짧은 영상을 바탕으로 장면 순서, 자막 포인트, 릴스
-            템포를 잡아 바로 업로드할 수 있는 세로형 콘텐츠로 만듭니다.
+          <p className="mt-4 max-w-none text-[14px] leading-[1.8] text-[#5f6666] md:whitespace-nowrap">
+            <span className="md:hidden">
+              원본 사진과 짧은 영상을 바탕으로 장면 순서,
+              <br />
+              자막 포인트, 릴스 템포를 잡아
+              <br />
+              바로 업로드할 수 있는 세로형 콘텐츠로 만듭니다.
+            </span>
+            <span className="hidden md:inline">
+              원본 사진과 짧은 영상을 바탕으로 장면 순서, 자막 포인트, 릴스 템포를 잡아 바로 업로드할 수 있는 세로형 콘텐츠로 만듭니다.
+            </span>
           </p>
         </div>
 
@@ -51,12 +61,24 @@ export default function TransformationSection() {
                     전달받은 촬영본
                   </p>
                   <div className="overflow-hidden rounded-lg border border-black/8 bg-white">
-                    <img
-                      src={example.before}
-                      alt={`${example.label} 원본 이미지`}
-                      className="aspect-[4/3] w-full object-cover"
-                      loading="lazy"
-                    />
+                    {example.beforeType === "video" ? (
+                      <video
+                        src={example.before}
+                        className="aspect-[4/3] w-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={example.before}
+                        alt={`${example.label} 원본 이미지`}
+                        className="aspect-[4/3] w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
                   </div>
                 </div>
 
