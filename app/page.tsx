@@ -26,7 +26,7 @@ export default function HomePage() {
       <FaqSection />
 
       <footer className="border-t border-neutral-200 bg-neutral-50 px-6 py-12 text-sm text-neutral-500 md:px-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+        <div className="mx-auto flex max-w-[1180px] flex-col gap-6">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a
               href="https://sfacspace.com/"

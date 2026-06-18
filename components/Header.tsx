@@ -3,11 +3,35 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Instagram } from "lucide-react";
+import type { MouseEvent } from "react";
 
 export default function Header() {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin") ?? false;
   const sectionHref = (hash: string) => (pathname === "/" ? hash : `/${hash}`);
+
+  const handleSectionClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    hash: string,
+  ) => {
+    if (pathname !== "/") return;
+
+    const target = document.querySelector(hash);
+    if (!target) return;
+
+    event.preventDefault();
+    window.dispatchEvent(new Event("ryff:snap-scroll"));
+
+    const headerHeight = 76;
+    const targetTop =
+      window.scrollY + target.getBoundingClientRect().top - headerHeight;
+
+    window.history.pushState(null, "", hash);
+    window.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: "smooth",
+    });
+  };
 
   if (isAdmin) {
     return null;
@@ -31,18 +55,21 @@ export default function Header() {
           <nav className="hidden items-center gap-8 md:flex">
             <Link
               href={sectionHref("#samples")}
+              onClick={(event) => handleSectionClick(event, "#samples")}
               className="text-[14px] font-medium text-[#5f6666] transition hover:text-[#071716]"
             >
               작업물
             </Link>
             <Link
               href={sectionHref("#process")}
+              onClick={(event) => handleSectionClick(event, "#process")}
               className="text-[14px] font-medium text-[#5f6666] transition hover:text-[#071716]"
             >
               진행 방식
             </Link>
             <Link
               href={sectionHref("#pricing")}
+              onClick={(event) => handleSectionClick(event, "#pricing")}
               className="text-[14px] font-medium text-[#5f6666] transition hover:text-[#071716]"
             >
               플랜

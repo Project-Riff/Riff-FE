@@ -31,15 +31,22 @@ export default function ProcessSection() {
           </p>
 
           <div className="mt-3 flex max-w-[680px] flex-col gap-4">
-            <h2 className="max-w-[560px] text-[30px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
+            <h2 className="max-w-[560px] text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px]">
               쉽고 간편하게
               <br />
               <span className="text-[#ff6b2c]">사진만 전달하세요.</span>
             </h2>
 
             <p className="max-w-[520px] text-[14px] leading-[1.8] text-[#5f6666]">
-              자료를 보내주시면 구성, 편집, 자막, 최종 납품까지 필요한 단계를
-              Ryff가 순서대로 정리합니다.
+              <span className="md:hidden">
+                자료를 보내주시면 구성, 편집, 자막, 최종 납품까지
+                <br />
+                필요한 단계를 Ryff가 순서대로 정리합니다.
+              </span>
+              <span className="hidden md:inline">
+                자료를 보내주시면 구성, 편집, 자막, 최종 납품까지 필요한 단계를
+                Ryff가 순서대로 정리합니다.
+              </span>
             </p>
           </div>
         </div>
@@ -78,10 +85,13 @@ export default function ProcessSection() {
                   )}
                 </div>
 
-                <div className="relative h-40 overflow-hidden">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-[1.04]"
-                    style={{ backgroundImage: `url(${bgImage})` }}
+                <div className="relative h-40 overflow-hidden bg-[#f2eee8]">
+                  <img
+                    src={bgImage}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
                   />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,23,22,0)_0%,rgba(7,23,22,0.22)_100%)]" />
                 </div>

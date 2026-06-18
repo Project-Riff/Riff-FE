@@ -228,12 +228,25 @@ export default function IntroSection() {
               initial="hidden"
               whileInView="show"
               viewport={{ once: true, amount: 0.35 }}
-              className="text-[28px] font-semibold leading-[1.18] tracking-[0] text-[#071716] md:text-[42px] lg:text-[46px]"
+              className="mx-auto max-w-none font-semibold leading-[1.28] tracking-[0] text-[#071716] md:text-[42px] md:leading-[1.2] lg:text-[46px]"
             >
-              <RevealLine>장점이 넘치는 매장인데,</RevealLine>
-              <RevealLine>
-                콘텐츠 만들 시간이 없어서 놓치고 있던 순간들.
-              </RevealLine>
+              <span className="md:hidden">
+                <span className="block whitespace-nowrap text-[17px]">
+                  장점이 넘치는 매장인데,
+                </span>
+                <span className="mt-1 block whitespace-nowrap text-[21px]">
+                  콘텐츠 만들 시간이 없어서
+                </span>
+                <span className="block whitespace-nowrap text-[21px]">
+                  놓치고 있던 순간들
+                </span>
+              </span>
+              <span className="hidden md:inline">
+                <RevealLine>장점이 넘치는 매장인데,</RevealLine>
+                <RevealLine>
+                  콘텐츠 만들 시간이 없어서 놓치고 있던 순간들
+                </RevealLine>
+              </span>
             </motion.h2>
 
             <motion.p
@@ -247,8 +260,15 @@ export default function IntroSection() {
                 delay: 0.58,
               }}
             >
-              찍어둔 영상은 있지만, 릴스로 만들 여유가 없었던 순간들을 Ryff가
-              콘텐츠로 바꿔드립니다.
+              <span className="md:hidden">
+                찍어둔 영상은 있지만, 릴스로 만들 여유가 없었던
+                <br />
+                사장님들을 위해 Ryff가 콘텐츠로 바꿔드립니다.
+              </span>
+              <span className="hidden md:inline">
+                찍어둔 영상은 있지만, 릴스로 만들 여유가 없었던 순간들을 Ryff가
+                콘텐츠로 바꿔드립니다.
+              </span>
             </motion.p>
           </div>
         </div>
@@ -289,7 +309,7 @@ export default function IntroSection() {
                 <div>
                   <h3
                     className={[
-                      "max-w-[520px] text-[34px] font-semibold leading-[1.16] tracking-[0] text-[#071716] transition-transform duration-500 ease-out will-change-transform md:text-[56px]",
+                      "max-w-[520px] text-[28px] font-semibold leading-[1.16] tracking-[0] text-[#071716] transition-transform duration-500 ease-out will-change-transform md:text-[56px]",
                       activeSlide === index
                         ? "translate-y-0"
                         : "translate-y-4",
