@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
+import {
+  ADMIN_SESSION_MAX_AGE_SEC,
+  createAdminSessionValue,
+  getAdminCookieName,
+  safeEqual,
+} from "@/lib/admin-auth";
 
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
 
     const adminSecret = process.env.ADMIN_SECRET_KEY;
-    const cookieName = process.env.ADMIN_COOKIE_NAME || "admin_auth";
+    const cookieName = getAdminCookieName();
 
     if (!adminSecret) {
       return NextResponse.json(
@@ -14,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password !== adminSecret) {
+    if (typeof password !== "string" || !safeEqual(password, adminSecret)) {
       return NextResponse.json(
         { message: "관리자 키가 올바르지 않습니다." },
         { status: 401 }
@@ -26,12 +32,12 @@ export async function POST(req: Request) {
       { status: 200 }
     );
 
-    response.cookies.set(cookieName, "authorized", {
+    response.cookies.set(cookieName, await createAdminSessionValue(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 4,
+      maxAge: ADMIN_SESSION_MAX_AGE_SEC,
     });
 
     return response;
